@@ -1,0 +1,77 @@
+<div class="bg-transparent rounded-2xl p-8 min-h-[80vh]">
+    <div class="grid grid-cols-4 gap-8 h-full">
+        <!-- Top Cards (span 3 columns) -->
+        <div class="col-span-3 flex flex-col gap-8">
+            <!-- Top Row -->
+            <div class="flex gap-8">
+                <div class="bg-[#0B2239] text-white rounded-xl p-4 flex-1 flex flex-col shadow-lg">
+                    <span class="text-lg font-semibold mb-2">Total Balance</span>
+                    <span class="text-4xl text-right font-semibold">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                </div>
+                <div class="bg-[#0B4F3A] text-white rounded-xl p-4 flex-1 flex flex-col shadow-lg">
+                    <span class="text-lg font-semibold mb-2">You Owe</span>
+                    <span class="text-4xl text-right font-semibold">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                </div>
+                <div class="bg-[#2C3844] text-white rounded-xl p-4 flex-1 flex flex-col shadow-lg">
+                    <span class="text-lg font-semibold mb-2">You are owed</span>
+                    <span class="text-4xl text-right font-semibold">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                </div>
+            </div>
+            <!-- Bottom Row -->
+            <div class="flex gap-8 mt-8">
+                <div class="flex-1 rounded-xl min-h-[250px] bg-white shadow-lg">
+                    <h2 class="text-xl font-semibold ml-6 mt-2">You owe</h2>
+                    <div class="flex flex-col p-4">
+                        <div class="flex rounded-xl justify-between p-4 items-center">
+                            <span class="text-lg">Person A</span>
+                            <span class="text-lg">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                        </div>
+                        <div class="flex rounded-xl justify-between p-4 items-center">
+                            <span class="text-lg">Person B</span>
+                            <span class="text-lg">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                        </div>
+                        <div class="flex rounded-xl justify-between p-4 items-center">
+                            <span class="text-lg">Person C</span>
+                            <span class="text-lg">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="flex-1 rounded-xl min-h-[250px] bg-white shadow-lg">
+                    <h2 class="text-xl font-semibold ml-6 mt-2">You are owed</h2>
+                    <div class="flex flex-col p-4">
+                        <div class="flex rounded-xl justify-between p-4 items-center">
+                            <span class="text-lg">Person A</span>
+                            <span class="text-lg">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                        </div>
+                        <div class="flex rounded-xl justify-between p-4 items-center">
+                            <span class="text-lg">Person B</span>
+                            <span class="text-lg">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                        </div>
+                        <div class="flex rounded-xl justify-between p-4 items-center">
+                            <span class="text-lg">Person C</span>
+                            <span class="text-lg">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Rightmost Tall Card -->
+        <div class="row-span-2 rounded-xl bg-white shadow-lg min-h-[400px] p-4">
+            <h2 class="text-2xl text-left m-2 font-semibold">Groups</h2>
+            <!-- <div class="flex rounded-xl justify-between bg-[#1f1f1f] p-4 items-center">
+                <span class="text-lg text-white">Tin Factory</span>
+                <span class="text-lg text-white">{{val | currency:'INR':'symbol': '1.2-2'}}</span>
+            </div> -->
+            <ng-container *ngFor="let group of groups">
+                <a class="flex rounded-xl justify-between bg-[#1f1f1f] p-4 items-center cursor-pointer hover:bg-[#2f2f2f] transition-colors duration-200 mb-2"
+                    [routerLink]="['/group', group.id]">
+                    <span class="text-lg text-white">{{group.name}}</span>
+                    <span class="text-lg text-white">{{group.balance | currency:'INR':'symbol': '1.2-2'}}</span>
+                </a>
+            </ng-container>
+
+        </div>
+    </div>
+</div>

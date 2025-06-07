@@ -1,0 +1,36 @@
+/* filepath: src/app/layout/main-layout/main-layout.component.css */
+.main-layout {
+    display: flex;
+    min-height: calc(100vh - 2rem);
+}
+
+.sidebar {
+    width: 200px;
+    background: #22223b;
+    padding: 1rem;
+    color: #F2F5FD;
+    padding: 2rem 1rem;
+}
+
+.content {
+    flex: 1;
+    padding: 2rem;
+    background: #F2F5FD;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    padding: 2rem;
+    min-height: calc(100vh - 4rem);
+    transition: box-shadow 0.2s;
+}
+
+.active-menu {
+    background: #fff;
+    color: #22223b !important;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    display: block;
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    transition: background 0.2s, color 0.2s;
+    margin-bottom: 0.5rem;
+}
