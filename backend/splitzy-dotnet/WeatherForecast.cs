@@ -1,4 +1,4 @@
-namespace splitzy_backend
+namespace splitzy_dotnet
 {
     public class WeatherForecast
     {
