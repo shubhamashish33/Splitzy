@@ -29,4 +29,16 @@
     <Folder Include="Repository\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EditorConfigFiles Remove="D:\Repos\Splitzy\backend\splitzy-dotnet\DTO\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="DTO\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EditorConfigFiles Remove="D:\Repos\Splitzy\backend\splitzy-dotnet\DTO\.editorconfig" />
+  </ItemGroup>
+
 </Project>
