@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using splitzy_dotnet.DTO;
 using splitzy_dotnet.Models;
 using splitzy_dotnet.Services;
@@ -11,13 +12,11 @@ namespace splitzy_dotnet.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
         private readonly IJWTService _jWTService;
 
-        public AuthController(AppDbContext context, IConfiguration configuration, IJWTService jWTService)
+        public AuthController(AppDbContext context, IJWTService jWTService)
         {
             _context = context;
-            _configuration = configuration;
             _jWTService = jWTService;
         }
 

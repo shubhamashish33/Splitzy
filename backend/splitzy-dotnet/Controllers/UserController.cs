@@ -1,24 +1,43 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using splitzy_dotnet.DTO;
 using splitzy_dotnet.Models;
+using splitzy_dotnet.Services.Interfaces;
 
 namespace splitzy_dotnet.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class UserController : ControllerBase
     {
         private readonly AppDbContext _context;
-        public UserController(AppDbContext context)
+        private readonly IJWTService _jWTService;
+        public UserController(AppDbContext context, IJWTService jWTService)
         {
             _context = context;
+            _jWTService = jWTService;   
         }
 
         [HttpGet]
         [Route("GetAllUsers")]
         public IActionResult GetAll()
         {
+            //var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            //if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+            //{
+            //    return Unauthorized("No token provided.");
+            //}
+
+            //var token = authHeader.Substring("Bearer ".Length).Trim();
+
+            //// Validate the token using your JWT service
+            //var isValid = _jWTService.ValidateToken(token);
+            //if (!isValid)
+            //{
+            //    return Unauthorized("Invalid token.");
+            //}
             var usersFromDB = _context.Users.ToList();
 
             var users = usersFromDB.Select(u => new UserDTO

@@ -1,0 +1,26 @@
+﻿namespace splitzy_dotnet.DTO
+{
+    public class UserDashboardDTO
+    {
+        public int UserId { get; set; }
+        public string UserName { get; set; } = string.Empty;
+        public decimal TotalBalance { get; set; }
+        public decimal YouOwe { get; set; }
+        public decimal YouAreOwed { get; set; }
+        public List<PersonAmount> OweTo { get; set; } = new();
+        public List<PersonAmount> OwedFrom { get; set; } = new();
+        public List<GroupSummary> GroupWiseSummary { get; set; } = new();
+    }
+    public class PersonAmount
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+    }
+
+    public class GroupSummary
+    {
+        public int GroupId { get; set; }
+        public string GroupName { get; set; } = string.Empty;
+        public decimal NetBalance { get; set; }
+    }
+}
