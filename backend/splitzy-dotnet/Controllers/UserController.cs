@@ -7,7 +7,7 @@ using splitzy_dotnet.Services.Interfaces;
 
 namespace splitzy_dotnet.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class UserController : ControllerBase
@@ -40,7 +40,7 @@ namespace splitzy_dotnet.Controllers
             //}
             var usersFromDB = _context.Users.ToList();
 
-            var users = usersFromDB.Select(u => new UserDTO
+            var users = usersFromDB.Select(u => new LoginUserDTO
             {
                 Name = u.Name,
                 Email = u.Email,

@@ -6,7 +6,7 @@ using splitzy_dotnet.Models;
 
 namespace splitzy_dotnet.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class DashboardController : Controller
@@ -17,7 +17,7 @@ namespace splitzy_dotnet.Controllers
             _context = context;
         }
         [HttpGet("dashboard/{userId}")]
-        public async Task<ActionResult<UserDashboardDTO>> GetDashboard(int userId)
+        public async Task<ActionResult<UserDTO>> GetDashboard(int userId)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
@@ -110,7 +110,7 @@ namespace splitzy_dotnet.Controllers
                     )
                 }).ToListAsync();
 
-            var result = new UserDashboardDTO
+            var result = new UserDTO
             {
                 UserId = user.UserId,
                 UserName = user.Name,

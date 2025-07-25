@@ -27,10 +27,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Repository\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <EditorConfigFiles Remove="D:\Repos\Splitzy\backend\splitzy-dotnet\DTO\.editorconfig" />
   </ItemGroup>
 

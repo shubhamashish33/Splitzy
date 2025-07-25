@@ -1,8 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using splitzy_dotnet.DTO;
 using splitzy_dotnet.Models;
-using splitzy_dotnet.Services;
 using splitzy_dotnet.Services.Interfaces;
 
 namespace splitzy_dotnet.Controllers
@@ -21,7 +19,7 @@ namespace splitzy_dotnet.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginUserDTO user)
+        public async Task<IActionResult> Login([FromBody] LoginRequestDTO user)
         {
             var loginUser = _context.Users.FirstOrDefault(u => u.Email == user.Email);
             if (loginUser == null)
