@@ -4,13 +4,13 @@
         <div class="flex flex-col justify-between min-h-[calc(80vh-2rem)]">
             <ul class="text-center mt-40">
                 <li class="m-4">
-                    <a routerLink="/dashboard" routerLinkActive="active-menu"
+                    <a [routerLink]="['/dashboard', userId]" routerLinkActive="active-menu"
                         [routerLinkActiveOptions]="{ exact: true }">
                         Dashboard
                     </a>
                 </li>
                 <li>
-                    <a routerLink="/recent-activity" routerLinkActive="active-menu"
+                    <a [routerLink]="['/recent-activity', userId]" routerLinkActive="active-menu"
                         [routerLinkActiveOptions]="{ exact: true }">
                         Recent Activity
                     </a>
@@ -26,7 +26,6 @@
     </nav>
     <main class="content">
         <app-modal *ngIf="isModalOpen" [type]="modalType" (close)="isModalOpen = false"></app-modal>
-        <router-outlet>
-        </router-outlet>
+        <router-outlet></router-outlet>
     </main>
 </div>
