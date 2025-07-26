@@ -19,6 +19,8 @@ public partial class ActivityLog
 
     public DateTime? CreatedAt { get; set; }
 
+    public decimal? Amount { get; set; }
+
     public virtual Expense? Expense { get; set; }
 
     public virtual Group Group { get; set; } = null!;

@@ -105,7 +105,10 @@ namespace splitzy_dotnet.Controllers
                 GroupId = dto.GroupId,
                 UserId = dto.PaidByUserId,
                 ActionType = "AddExpense",
+                Description = expense.Name,
                 Expense = expense,
+                ExpenseId = expense.ExpenseId,
+                Amount = expense.Amount,
                 CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
             });
             await _context.SaveChangesAsync();
@@ -131,18 +134,20 @@ namespace splitzy_dotnet.Controllers
             var groupId = expense.GroupId;
 
             _context.ExpenseSplits.RemoveRange(expense.ExpenseSplits);
-            _context.Expenses.Remove(expense);
-
-            await _context.SaveChangesAsync();
 
             _context.ActivityLogs.Add(new ActivityLog
             {
                 GroupId = groupId,
                 UserId = expense.PaidByUserId,
                 ActionType = "DeleteExpense",
+                Description = expense.Name,
+                ExpenseId = expenseId,
                 Expense = expense,
+                Amount = expense.Amount,
                 CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
             });
+            _context.Expenses.Remove(expense);
+
             await _context.SaveChangesAsync();
 
             // Recalculate simplified settlements for the group
@@ -198,7 +203,10 @@ namespace splitzy_dotnet.Controllers
                 GroupId = dto.GroupId,
                 UserId = dto.PaidByUserId,
                 ActionType = "UpdateExpense",
+                Description = dto.Name,
                 Expense = expense,
+                ExpenseId = expense.ExpenseId,
+                Amount = expense.Amount,
                 CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
             });
             await _context.SaveChangesAsync();

@@ -45,6 +45,9 @@ public partial class SplitzyContext : DbContext
             entity.Property(e => e.ActionType)
                 .HasMaxLength(50)
                 .HasColumnName("action_type");
+            entity.Property(e => e.Amount)
+                .HasPrecision(10, 2)
+                .HasColumnName("amount");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")

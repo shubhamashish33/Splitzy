@@ -26,30 +26,41 @@ namespace splitzy_dotnet.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ActionType")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("action_type");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("description");
 
                     b.Property<int?>("ExpenseId")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("expense_id");
 
                     b.Property<int>("GroupId")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("group_id");
 
                     b.Property<int>("UserId")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("activity_log_pkey");
 
                     b.HasIndex("ExpenseId");
 
@@ -57,7 +68,7 @@ namespace splitzy_dotnet.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("ActivityLogs");
+                    b.ToTable("activity_log", (string)null);
                 });
 
             modelBuilder.Entity("splitzy_dotnet.Models.Expense", b =>
@@ -289,21 +300,24 @@ namespace splitzy_dotnet.Migrations
             modelBuilder.Entity("splitzy_dotnet.Models.ActivityLog", b =>
                 {
                     b.HasOne("splitzy_dotnet.Models.Expense", "Expense")
-                        .WithMany()
+                        .WithMany("ActivityLogs")
                         .HasForeignKey("ExpenseId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("activity_log_expense_id_fkey");
 
                     b.HasOne("splitzy_dotnet.Models.Group", "Group")
-                        .WithMany()
+                        .WithMany("ActivityLogs")
                         .HasForeignKey("GroupId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("activity_log_group_id_fkey");
 
                     b.HasOne("splitzy_dotnet.Models.User", "User")
-                        .WithMany()
+                        .WithMany("ActivityLogs")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("activity_log_user_id_fkey");
 
                     b.Navigation("Expense");
 
@@ -407,11 +421,15 @@ namespace splitzy_dotnet.Migrations
 
             modelBuilder.Entity("splitzy_dotnet.Models.Expense", b =>
                 {
+                    b.Navigation("ActivityLogs");
+
                     b.Navigation("ExpenseSplits");
                 });
 
             modelBuilder.Entity("splitzy_dotnet.Models.Group", b =>
                 {
+                    b.Navigation("ActivityLogs");
+
                     b.Navigation("Expenses");
 
                     b.Navigation("GroupMembers");
@@ -421,6 +439,8 @@ namespace splitzy_dotnet.Migrations
 
             modelBuilder.Entity("splitzy_dotnet.Models.User", b =>
                 {
+                    b.Navigation("ActivityLogs");
+
                     b.Navigation("ExpenseSplits");
 
                     b.Navigation("Expenses");

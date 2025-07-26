@@ -62,7 +62,7 @@ namespace splitzy_dotnet.Controllers
                 .GroupBy(x => x.expense.PaidByUserId)
                 .Select(g => new PersonAmount
                 {
-                    Name = _context.Users.Where(u => u.UserId == g.Key).Select(u => u.Name).FirstOrDefault(),
+                    Name = _context.Users.Where(u => u.UserId == g.Key).Select(u => u.Name).FirstOrDefault() ?? string.Empty, // Fix CS8601
                     Amount = g.Sum(x => x.split.OwedAmount)
                 })
                 .ToListAsync();
@@ -78,7 +78,7 @@ namespace splitzy_dotnet.Controllers
                 .GroupBy(x => x.s.UserId)
                 .Select(g => new PersonAmount
                 {
-                    Name = _context.Users.Where(u => u.UserId == g.Key).Select(u => u.Name).FirstOrDefault(),
+                    Name = _context.Users.Where(u => u.UserId == g.Key).Select(u => u.Name).FirstOrDefault() ?? string.Empty, // Fix CS8601
                     Amount = g.Sum(x => x.s.OwedAmount)
                 })
                 .ToListAsync();
@@ -184,9 +184,22 @@ namespace splitzy_dotnet.Controllers
 
             foreach (var log in logs)
             {
-                if (log.ActionType == "AddExpense") continue; // Skip "added" logs to avoid duplication
+                // Get group name synchronously to avoid 'await' in lambda (Fix CS4034)
+                var groupName = await _context.Groups
+                    .Where(g => g.GroupId == log.GroupId)
+                    .Select(g => g.Name)
+                    .FirstOrDefaultAsync() ?? string.Empty;
 
-                // Get actor name from UserId
+                // Show "AddExpense" events if the expense is not present in the expenses list
+                bool isAlreadyAdded = activities.Any(a =>
+                    a.Action == "added" &&
+                    a.ExpenseName == log.Description &&
+                    a.GroupName == groupName
+                );
+
+                if (log.ActionType == "AddExpense" && isAlreadyAdded)
+                    continue; // Only skip if already present from expenses
+
                 string actorName;
                 if (log.UserId == userId)
                 {
@@ -200,28 +213,23 @@ namespace splitzy_dotnet.Controllers
                         .FirstOrDefaultAsync() ?? "Someone";
                 }
 
-                // Get group name from GroupId
-                var groupName = await _context.Groups
-                    .Where(g => g.GroupId == log.GroupId)
-                    .Select(g => g.Name)
-                    .FirstOrDefaultAsync() ?? "";
-
                 activities.Add(new RecentActivityDTO
                 {
                     Actor = actorName,
                     Action = log.ActionType switch
                     {
+                        "AddExpense" => "added",
                         "UpdateExpense" => "updated",
                         "DeleteExpense" => "deleted",
                         _ => log.ActionType.ToLower()
                     },
-                    ExpenseName = log.Expense.Name,
+                    ExpenseName = log.Description ?? string.Empty, // Fix CS8601
                     GroupName = groupName,
                     CreatedAt = log.CreatedAt,
                     Impact = new ActivityImpact
                     {
                         Type = "info",
-                        Amount = log.Expense.Amount
+                        Amount = log.Amount ?? 0m
                     }
                 });
             }
