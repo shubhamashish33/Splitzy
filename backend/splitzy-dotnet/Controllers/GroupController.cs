@@ -23,6 +23,8 @@ namespace splitzy_dotnet.Controllers
         /// <param name="userId">User ID</param>
         /// <returns>List of groups</returns>
         [HttpGet("GetAllGroupByUser/{userId}")]
+        [ProducesResponseType(typeof(IEnumerable<UserGroupInfo>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<UserGroupInfo>>> GetAllGroupByUser(int userId)
         {
             try
@@ -51,6 +53,9 @@ namespace splitzy_dotnet.Controllers
         /// Get group summary including members and expenses.
         /// </summary>
         [HttpGet("GetGroupSummary/{groupId}")]
+        [ProducesResponseType(typeof(GroupSummaryDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<GroupSummaryDTO>> GetGroupSummary(int groupId)
         {
             try
@@ -93,16 +98,24 @@ namespace splitzy_dotnet.Controllers
         /// Creates a new group and adds users as members.
         /// </summary>
         [HttpPost("CreateGroup")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> CreateGroup([FromBody] CreateGroupRequest request)
         {
             try
             {
+                // Fetch users by email
                 var users = await _context.Users
-                    .Where(u => request.UserIds.Contains(u.UserId))
+                    .Where(u => request.UserEmails.Contains(u.Email))
                     .ToListAsync();
 
-                if (users.Count != request.UserIds.Count)
-                    return NotFound("One or more users not found.");
+                // Check for missing emails
+                var foundEmails = users.Select(u => u.Email).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var missingEmails = request.UserEmails.Where(email => !foundEmails.Contains(email, StringComparer.OrdinalIgnoreCase)).ToList();
+
+                if (missingEmails.Any())
+                    return NotFound($"User(s) not found for email(s): {string.Join(", ", missingEmails)}");
 
                 var group = new Group
                 {
@@ -148,6 +161,9 @@ namespace splitzy_dotnet.Controllers
         /// Gets group overview for a user including balances and expenses.
         /// </summary>
         [HttpGet("GetGroupOverview/{userId}/{groupId}")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> GetGroupOverview(int userId, int groupId)
         {
             try

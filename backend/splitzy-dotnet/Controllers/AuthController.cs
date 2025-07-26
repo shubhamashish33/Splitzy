@@ -24,6 +24,9 @@ namespace splitzy_dotnet.Controllers
         /// <param name="user">Login credentials</param>
         /// <returns>JWT Token and User ID</returns>
         [HttpPost("login")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType((typeof(ApiResponse<>)),StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType((typeof(ApiResponse<>)),StatusCodes.Status500InternalServerError)]
         public IActionResult Login([FromBody] LoginRequestDTO user)
         {
             if (!ModelState.IsValid)
@@ -72,6 +75,9 @@ namespace splitzy_dotnet.Controllers
         /// <param name="request">User registration data</param>
         /// <returns>Created User ID</returns>
         [HttpPost("signup")]
+        [ProducesResponseType(typeof(ApiResponse<>), StatusCodes.Status200OK)]
+        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status500InternalServerError)]
         public IActionResult Signup([FromBody] SignupRequestDTO request)
         {
             if (!ModelState.IsValid)

@@ -22,6 +22,9 @@ namespace splitzy_dotnet.Controllers
         /// <param name="userId">User ID</param>
         /// <returns>User dashboard summary</returns>
         [HttpGet("dashboard/{userId}")]
+        [ProducesResponseType(typeof(UserDTO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<UserDTO>> GetDashboard(int userId)
         {
             try
@@ -112,6 +115,8 @@ namespace splitzy_dotnet.Controllers
         /// <param name="userId">User ID</param>
         /// <returns>List of recent activities</returns>
         [HttpGet("recent/{userId}")]
+        [ProducesResponseType(typeof(List<RecentActivityDTO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetRecentActivity(int userId)
         {
             try

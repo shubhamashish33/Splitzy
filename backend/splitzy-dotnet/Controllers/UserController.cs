@@ -25,6 +25,8 @@ namespace splitzy_dotnet.Controllers
         /// </summary>
         /// <returns>A list of users.</returns>
         [HttpGet("GetAllUsers")]
+        [ProducesResponseType(typeof(List<LoginUserDTO>), 200)]
+        [ProducesResponseType(500)]
         public async Task<ActionResult<List<LoginUserDTO>>> GetAll()
         {
             try
@@ -52,6 +54,9 @@ namespace splitzy_dotnet.Controllers
         /// <param name="userId">The user's ID.</param>
         /// <returns>User's group and expense summary.</returns>
         [HttpGet("{userId}")]
+        [ProducesResponseType(typeof(UserGroupExpenseDTO), 200)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(500)]
         public async Task<ActionResult<UserGroupExpenseDTO>> GetUserGroupSummary(int userId)
         {
             try

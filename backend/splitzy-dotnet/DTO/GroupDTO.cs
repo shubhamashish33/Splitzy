@@ -7,7 +7,7 @@ namespace splitzy_dotnet.DTO
         public class CreateGroupRequest
         {
             public required string GroupName { get; set; }
-            public List<int> UserIds { get; set; } = new();
+            public List<string> UserEmails { get; set; } = new();
         }
         public class GroupSummaryDTO
         {

@@ -24,6 +24,9 @@ namespace splitzy_dotnet.Controllers
         /// <param name="dto">Expense details</param>
         /// <returns>Expense creation result</returns>
         [HttpPost("AddExpense")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> AddExpense([FromBody] CreateExpenseDto dto)
         {
             try
@@ -105,6 +108,9 @@ namespace splitzy_dotnet.Controllers
         /// <param name="expenseId">Expense ID</param>
         /// <returns>Deletion result</returns>
         [HttpDelete("DeleteExpense/{expenseId}")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> DeleteExpense(int expenseId)
         {
             try
@@ -150,6 +156,10 @@ namespace splitzy_dotnet.Controllers
         /// <param name="dto">Updated expense details</param>
         /// <returns>Update result</returns>
         [HttpPut("UpdateExpense")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> UpdateExpense([FromBody] UpdateExpenseDto dto)
         {
             try
