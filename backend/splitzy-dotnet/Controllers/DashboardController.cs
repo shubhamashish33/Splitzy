@@ -125,5 +125,42 @@ namespace splitzy_dotnet.Controllers
             return Ok(result);
         }
 
+        [HttpGet("recent/{userId}")]
+        public async Task<IActionResult> GetRecentActivity(int userId)
+        {
+            var expenses = await _context.Expenses
+                .Include(e => e.ExpenseSplits)
+                .Include(e => e.Group)
+                .Where(e => e.ExpenseSplits.Any(s => s.UserId == userId) || e.PaidByUserId == userId)
+                .OrderByDescending(e => e.CreatedAt)
+                .Take(10)
+                .ToListAsync();
+
+            var activities = new List<RecentActivityDTO>();
+
+            foreach (var expense in expenses)
+            {
+                var actor = expense.PaidByUserId == userId ? "You" : _context.Users.Find(expense.PaidByUserId)?.Name ?? "Someone";
+                var userSplit = expense.ExpenseSplits.FirstOrDefault(s => s.UserId == userId)?.OwedAmount ?? 0;
+                var impactAmount = expense.PaidByUserId == userId ? expense.Amount - userSplit : -userSplit;
+
+                activities.Add(new RecentActivityDTO
+                {
+                    Actor = actor,
+                    Action = "added",
+                    ExpenseName = expense.Name,
+                    GroupName = expense.Group?.Name ?? "",
+                    CreatedAt = (DateTime)expense.CreatedAt,
+                    Impact = new ActivityImpact
+                    {
+                        Type = impactAmount >= 0 ? "get_back" : "owe",
+                        Amount = Math.Abs(impactAmount)
+                    }
+                });
+            }
+
+            return Ok(activities);
+        }
+
     }
 }

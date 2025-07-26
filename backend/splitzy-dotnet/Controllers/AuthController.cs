@@ -19,7 +19,7 @@ namespace splitzy_dotnet.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequestDTO user)
+        public IActionResult Login([FromBody] LoginRequestDTO user)
         {
             var loginUser = _context.Users.FirstOrDefault(u => u.Email == user.Email);
             if (loginUser == null)

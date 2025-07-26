@@ -117,5 +117,80 @@ namespace splitzy_dotnet.Controllers
                 Members = memberDetails
             });
         }
+
+        [HttpGet("GetGroupOverview/{userId}/{groupId}")]
+        public async Task<IActionResult> GetGroupOverview(int userId, int groupId)
+        {
+            var group = await _context.Groups.FirstOrDefaultAsync(g => g.GroupId == groupId);
+            if (group == null) return NotFound("Group not found");
+
+            var members = await _context.GroupMembers
+                .Where(gm => gm.GroupId == groupId)
+                .Select(gm => gm.UserId)
+                .ToListAsync();
+
+            var userNameMap = await _context.Users
+                .Where(u => members.Contains(u.UserId))
+                .ToDictionaryAsync(u => u.UserId, u => u.Name);
+
+            var allExpenses = await _context.Expenses
+                .Where(e => e.GroupId == groupId)
+                .Include(e => e.ExpenseSplits)
+                .ToListAsync();
+
+            var netBalances = members.ToDictionary(id => id, id => 0.0m);
+
+            foreach (var exp in allExpenses)
+            {
+                foreach (var split in exp.ExpenseSplits)
+                {
+                    if (netBalances.ContainsKey(split.UserId))
+                        netBalances[split.UserId] -= split.OwedAmount;
+                }
+
+                if (netBalances.ContainsKey(exp.PaidByUserId))
+                    netBalances[exp.PaidByUserId] += exp.Amount;
+            }
+
+            decimal groupBalance = netBalances.Sum(nb => nb.Value);
+            decimal youOwe = netBalances[userId] < 0 ? Math.Abs(netBalances[userId]) : 0;
+            decimal youAreOwed = netBalances[userId] > 0 ? netBalances[userId] : 0;
+
+            var expenses = allExpenses.Select(e => new
+            {
+                e.ExpenseId,
+                e.Name,
+                e.Amount,
+                PaidBy = userNameMap[e.PaidByUserId],
+                CreatedAt = e.CreatedAt?.ToString("MMM dd") ?? string.Empty,
+                YouOwe = e.ExpenseSplits.FirstOrDefault(s => s.UserId == userId)?.OwedAmount ?? 0
+            });
+
+            // Return net balance summary for all users
+            var allUserSummaries = netBalances.Select(kvp => new
+            {
+                UserId = kvp.Key,
+                Name = userNameMap[kvp.Key],
+                Balance = Math.Round(kvp.Value, 2),
+            }).ToList();
+
+            return Ok(new
+            {
+                group.GroupId,
+                group.Name,
+                Created = group.CreatedAt?.ToString("MMM dd") ?? string.Empty,
+                GroupBalance = Math.Round(groupBalance, 2),
+                MembersCount = members.Count,
+                Expenses = expenses,
+                Balances = new
+                {
+                    TotalBalance = Math.Round(netBalances[userId], 2),
+                    YouOwe = Math.Round(youOwe, 2),
+                    YouAreOwed = Math.Round(youAreOwed, 2)
+                },
+                Members = userNameMap.Select(kvp => new { MemberId = kvp.Key, MemberName = kvp.Value }).ToList(),
+                UserSummaries = allUserSummaries
+            });
+        }
     }
 }

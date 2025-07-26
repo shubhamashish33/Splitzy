@@ -29,25 +29,14 @@ namespace splitzy_dotnet.Controllers
             if (!isMember)
                 return BadRequest("Payer must be a member of the group");
 
-            Dictionary<int, decimal> finalSplits = new();
+            if (dto.SplitDetails == null || dto.SplitDetails.Count == 0)
+                return BadRequest("Split details required");
 
-            if (dto.SplitType == SplitType.Equal)
-            {
-                var groupUserIds = await _context.GroupMembers
-                    .Where(gm => gm.GroupId == dto.GroupId)
-                    .Select(gm => gm.UserId).ToListAsync();
+            var totalSplit = dto.SplitDetails.Sum(s => s.Amount);
+            if (Math.Abs(totalSplit - dto.Amount) > 0.01m)
+                return BadRequest("Split amounts must total to the expense amount");
 
-                decimal equalSplit = Math.Round(1.0m / groupUserIds.Count, 4);
-                foreach (var uid in groupUserIds)
-                    finalSplits[uid] = equalSplit;
-            }
-            else if (dto.SplitType == SplitType.Percentage || dto.SplitType == SplitType.Exact)
-            {
-                finalSplits = dto.SplitDetails;
-                var total = dto.SplitType == SplitType.Percentage ? finalSplits.Values.Sum() : finalSplits.Values.Sum() / dto.Amount;
-                if (Math.Abs(total - 1.0m) > 0.01m)
-                    return BadRequest("Split percentages or amounts must total to 100% of the expense");
-            }
+            var splitDict = dto.SplitDetails.ToDictionary(s => s.UserId, s => s.Amount);
 
             var expense = new Expense
             {
@@ -55,29 +44,29 @@ namespace splitzy_dotnet.Controllers
                 Amount = dto.Amount,
                 GroupId = dto.GroupId,
                 PaidByUserId = dto.PaidByUserId,
-                SplitPer = JsonSerializer.Serialize(finalSplits),
-                CreatedAt = DateTime.UtcNow
+                SplitPer = JsonSerializer.Serialize(splitDict),
+                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
             };
 
             _context.Expenses.Add(expense);
             await _context.SaveChangesAsync();
 
-            var splits = finalSplits.Select(pair => new ExpenseSplit
+            var splits = dto.SplitDetails.Select(s => new ExpenseSplit
             {
                 ExpenseId = expense.ExpenseId,
-                UserId = pair.Key,
-                OwedAmount = dto.SplitType == SplitType.Exact ? pair.Value : Math.Round(dto.Amount * pair.Value, 2)
+                UserId = s.UserId,
+                OwedAmount = s.Amount
             });
 
             _context.ExpenseSplits.AddRange(splits);
             await _context.SaveChangesAsync();
 
-            var groupUserIdsFinal = await _context.GroupMembers
+            var groupUserIds = await _context.GroupMembers
                 .Where(gm => gm.GroupId == dto.GroupId)
                 .Select(gm => gm.UserId)
                 .ToListAsync();
 
-            var netBalances = groupUserIdsFinal.ToDictionary(uid => uid, uid => 0.0m);
+            var netBalances = groupUserIds.ToDictionary(uid => uid, uid => 0.0m);
 
             var allExpenses = await _context.Expenses
                 .Where(e => e.GroupId == dto.GroupId)
@@ -98,6 +87,18 @@ namespace splitzy_dotnet.Controllers
 
             var simplifier = new ExpenseSimplifier();
             var simplifiedTransactions = simplifier.Simplify(netBalances);
+
+            var settlements = simplifiedTransactions.Select(txn => new Settlement
+            {
+                GroupId = dto.GroupId,
+                PaidBy = txn.FromUser,
+                PaidTo = txn.ToUser,
+                Amount = txn.Amount,
+                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
+            });
+
+            _context.Settlements.AddRange(settlements);
+            await _context.SaveChangesAsync();
 
             return Ok(new
             {
