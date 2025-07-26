@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using splitzy_dotnet.DTO;
 using splitzy_dotnet.Models;
+using System.Text.RegularExpressions;
 
 namespace splitzy_dotnet.Controllers
 {
@@ -11,8 +12,8 @@ namespace splitzy_dotnet.Controllers
     [Route("api/[controller]")]
     public class DashboardController : Controller
     {
-        private readonly AppDbContext _context;
-        public DashboardController(AppDbContext context)
+        private readonly SplitzyContext _context;
+        public DashboardController(SplitzyContext context)
         {
             _context = context;
         }
@@ -128,29 +129,44 @@ namespace splitzy_dotnet.Controllers
         [HttpGet("recent/{userId}")]
         public async Task<IActionResult> GetRecentActivity(int userId)
         {
+            // Get groupIds where user is a member
+            var groupIds = await _context.GroupMembers
+                .Where(gm => gm.UserId == userId)
+                .Select(gm => gm.GroupId)
+                .ToListAsync();
+
+            // 1️⃣ Fetch recent expenses in those groups
             var expenses = await _context.Expenses
                 .Include(e => e.ExpenseSplits)
                 .Include(e => e.Group)
-                .Where(e => e.ExpenseSplits.Any(s => s.UserId == userId) || e.PaidByUserId == userId)
+                .Where(e => groupIds.Contains(e.GroupId))
                 .OrderByDescending(e => e.CreatedAt)
-                .Take(10)
+                .Take(20)
                 .ToListAsync();
 
             var activities = new List<RecentActivityDTO>();
 
             foreach (var expense in expenses)
             {
-                var actor = expense.PaidByUserId == userId ? "You" : _context.Users.Find(expense.PaidByUserId)?.Name ?? "Someone";
-                var userSplit = expense.ExpenseSplits.FirstOrDefault(s => s.UserId == userId)?.OwedAmount ?? 0;
-                var impactAmount = expense.PaidByUserId == userId ? expense.Amount - userSplit : -userSplit;
+                var payerName = await _context.Users
+                    .Where(u => u.UserId == expense.PaidByUserId)
+                    .Select(u => u.Name)
+                    .FirstOrDefaultAsync() ?? "Someone";
+
+                var userSplit = expense.ExpenseSplits
+                    .FirstOrDefault(s => s.UserId == userId)?.OwedAmount ?? 0;
+
+                var impactAmount = expense.PaidByUserId == userId
+                    ? expense.Amount - userSplit
+                    : -userSplit;
 
                 activities.Add(new RecentActivityDTO
                 {
-                    Actor = actor,
+                    Actor = expense.PaidByUserId == userId ? "You" : payerName,
                     Action = "added",
                     ExpenseName = expense.Name,
                     GroupName = expense.Group?.Name ?? "",
-                    CreatedAt = (DateTime)expense.CreatedAt,
+                    CreatedAt = expense.CreatedAt ?? DateTime.MinValue, // Fix CS8629
                     Impact = new ActivityImpact
                     {
                         Type = impactAmount >= 0 ? "get_back" : "owe",
@@ -159,7 +175,64 @@ namespace splitzy_dotnet.Controllers
                 });
             }
 
-            return Ok(activities);
+            // 2️⃣ Fetch activity logs in those groups (including update/delete by anyone)
+            var logs = await _context.ActivityLogs
+                .Where(a => groupIds.Contains(a.GroupId))
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(20)
+                .ToListAsync();
+
+            foreach (var log in logs)
+            {
+                if (log.ActionType == "AddExpense") continue; // Skip "added" logs to avoid duplication
+
+                // Get actor name from UserId
+                string actorName;
+                if (log.UserId == userId)
+                {
+                    actorName = "You";
+                }
+                else
+                {
+                    actorName = await _context.Users
+                        .Where(u => u.UserId == log.UserId)
+                        .Select(u => u.Name)
+                        .FirstOrDefaultAsync() ?? "Someone";
+                }
+
+                // Get group name from GroupId
+                var groupName = await _context.Groups
+                    .Where(g => g.GroupId == log.GroupId)
+                    .Select(g => g.Name)
+                    .FirstOrDefaultAsync() ?? "";
+
+                activities.Add(new RecentActivityDTO
+                {
+                    Actor = actorName,
+                    Action = log.ActionType switch
+                    {
+                        "UpdateExpense" => "updated",
+                        "DeleteExpense" => "deleted",
+                        _ => log.ActionType.ToLower()
+                    },
+                    ExpenseName = log.Expense.Name,
+                    GroupName = groupName,
+                    CreatedAt = log.CreatedAt,
+                    Impact = new ActivityImpact
+                    {
+                        Type = "info",
+                        Amount = log.Expense.Amount
+                    }
+                });
+            }
+
+            // 3️⃣ Sort all activities by date and take top 10
+            var sortedActivities = activities
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(10)
+                .ToList();
+
+            return Ok(sortedActivities);
         }
 
     }

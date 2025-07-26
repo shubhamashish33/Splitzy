@@ -4,16 +4,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace splitzy_dotnet.Models;
 
-public partial class AppDbContext : DbContext
+public partial class SplitzyContext : DbContext
 {
-    public AppDbContext()
+    public SplitzyContext()
     {
     }
 
-    public AppDbContext(DbContextOptions<AppDbContext> options)
+    public SplitzyContext(DbContextOptions<SplitzyContext> options)
         : base(options)
     {
     }
+
+    public virtual DbSet<ActivityLog> ActivityLogs { get; set; }
 
     public virtual DbSet<Expense> Expenses { get; set; }
 
@@ -33,6 +35,39 @@ public partial class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ActivityLog>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("activity_log_pkey");
+
+            entity.ToTable("activity_log");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ActionType)
+                .HasMaxLength(50)
+                .HasColumnName("action_type");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.ExpenseId).HasColumnName("expense_id");
+            entity.Property(e => e.GroupId).HasColumnName("group_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.Expense).WithMany(p => p.ActivityLogs)
+                .HasForeignKey(d => d.ExpenseId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("activity_log_expense_id_fkey");
+
+            entity.HasOne(d => d.Group).WithMany(p => p.ActivityLogs)
+                .HasForeignKey(d => d.GroupId)
+                .HasConstraintName("activity_log_group_id_fkey");
+
+            entity.HasOne(d => d.User).WithMany(p => p.ActivityLogs)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("activity_log_user_id_fkey");
+        });
+
         modelBuilder.Entity<Expense>(entity =>
         {
             entity.HasKey(e => e.ExpenseId).HasName("expenses_pkey");

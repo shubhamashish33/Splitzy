@@ -9,10 +9,10 @@ namespace splitzy_dotnet.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly SplitzyContext _context;
         private readonly IJWTService _jWTService;
 
-        public AuthController(AppDbContext context, IJWTService jWTService)
+        public AuthController(SplitzyContext context, IJWTService jWTService)
         {
             _context = context;
             _jWTService = jWTService;

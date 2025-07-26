@@ -20,4 +20,13 @@
         public int UserId { get; set; }
         public decimal Amount { get; set; }
     }
+    public class UpdateExpenseDto
+    {
+        public int ExpenseId { get; set; }
+        public int GroupId { get; set; }
+        public int PaidByUserId { get; set; }
+        public decimal Amount { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public List<SplitDetailDto> SplitDetails { get; set; } = new();
+    }
 }

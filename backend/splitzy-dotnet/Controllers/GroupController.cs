@@ -11,8 +11,8 @@ namespace splitzy_dotnet.Controllers
 
     public class GroupController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        public GroupController(AppDbContext context)
+        private readonly SplitzyContext _context;
+        public GroupController(SplitzyContext context)
         {
             _context = context;
         }
