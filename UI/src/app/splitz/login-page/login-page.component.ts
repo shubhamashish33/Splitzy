@@ -63,17 +63,17 @@ export class LoginPageComponent {
         next: (response: any) => {
           this.isLoading = false;
 
-          if (response.id) {
+          if (response.success && response.data.id) {
             // Store user ID in service and session
-            this.splitzService.setUserId(response.id);
+            this.splitzService.setUserId(response.data.id);
 
             // Store token if provided
-            if (response.token) {
-              sessionStorage.setItem('token', response.token);
+            if (response.data.token) {
+              sessionStorage.setItem('token', response.data.token);
             }
 
             // Redirect to dashboard with userId in URL
-            this.splitzService.redirectToDashboard(response.id);
+            this.splitzService.redirectToDashboard(response.data.id);
           } else {
             this.errorMessage = response.message || 'Login failed. Please try again.';
           }

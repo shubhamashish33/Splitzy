@@ -134,7 +134,7 @@ a:focus {
 }
 
 /* Dark mode support */
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
     .bg-white {
         background-color: #22223b;
         color: white;
@@ -151,4 +151,4 @@ a:focus {
     .border-gray-100 {
         border-color: #22223b;
     }
-}
+} */
