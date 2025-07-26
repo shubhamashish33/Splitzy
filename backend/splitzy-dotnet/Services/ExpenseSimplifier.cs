@@ -13,7 +13,8 @@ namespace splitzy_dotnet.Services
                 var maxCreditor = netBalances.Aggregate((l, r) => l.Value > r.Value ? l : r).Key;
                 var maxDebtor = netBalances.Aggregate((l, r) => l.Value < r.Value ? l : r).Key;
 
-                if (Math.Abs(netBalances[maxCreditor]) < 0.01m && Math.Abs(netBalances[maxDebtor]) < 0.01m)
+                // Break if all balances are settled
+                if (netBalances.Values.All(v => Math.Abs(v) <= 0.01m))
                     break;
 
                 var amount = Math.Min(-netBalances[maxDebtor], netBalances[maxCreditor]);

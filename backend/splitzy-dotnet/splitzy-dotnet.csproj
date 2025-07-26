@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>splitzy_dotnet</RootNamespace>
+
+	  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+	  <NoWarn>1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,7 +28,6 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.3" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.12.1" />
   </ItemGroup>
-
   <ItemGroup>
     <EditorConfigFiles Remove="D:\Repos\Splitzy\backend\splitzy-dotnet\DTO\.editorconfig" />
   </ItemGroup>

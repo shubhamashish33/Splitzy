@@ -1,247 +1,226 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using splitzy_dotnet.DTO;
 using splitzy_dotnet.Models;
-using System.Text.RegularExpressions;
 
 namespace splitzy_dotnet.Controllers
 {
-    //[Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class DashboardController : Controller
+    public class DashboardController : ControllerBase
     {
         private readonly SplitzyContext _context;
+
         public DashboardController(SplitzyContext context)
         {
             _context = context;
         }
+
+        /// <summary>
+        /// Retrieves dashboard data for a specific user.
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <returns>User dashboard summary</returns>
         [HttpGet("dashboard/{userId}")]
         public async Task<ActionResult<UserDTO>> GetDashboard(int userId)
         {
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null) return NotFound();
-
-            // Get all groups user is in
-            var groupMemberships = await _context.GroupMembers
-                .Where(gm => gm.UserId == userId)
-                .Include(gm => gm.Group)
-                .ToListAsync();
-
-            // Total paid
-            var totalPaid = await _context.Expenses
-                .Where(e => e.PaidByUserId == userId)
-                .SumAsync(e => (decimal?)e.Amount) ?? 0;
-
-            // Total owed by user (splits)
-            var youOwe = await _context.ExpenseSplits
-                .Where(s => s.UserId == userId)
-                .SumAsync(s => (decimal?)s.OwedAmount) ?? 0;
-
-            // Total owed to user
-            var youAreOwed = await _context.Expenses
-                .Where(e => e.PaidByUserId == userId)
-                .Join(
-                    _context.ExpenseSplits,
-                    e => e.ExpenseId,
-                    s => s.ExpenseId,
-                    (e, s) => new { e.PaidByUserId, s.UserId, s.OwedAmount }
-                )
-                .Where(x => x.UserId != userId)
-                .SumAsync(x => (decimal?)x.OwedAmount) ?? 0;
-
-            // List of people user owes to
-            var oweTo = await _context.ExpenseSplits
-                .Where(s => s.UserId == userId)
-                .Join(_context.Expenses,
-                      split => split.ExpenseId,
-                      expense => expense.ExpenseId,
-                      (split, expense) => new { split, expense })
-                .Where(x => x.expense.PaidByUserId != userId)
-                .GroupBy(x => x.expense.PaidByUserId)
-                .Select(g => new PersonAmount
-                {
-                    Name = _context.Users.Where(u => u.UserId == g.Key).Select(u => u.Name).FirstOrDefault() ?? string.Empty, // Fix CS8601
-                    Amount = g.Sum(x => x.split.OwedAmount)
-                })
-                .ToListAsync();
-
-            // List of people who owe user
-            var owedFrom = await _context.Expenses
-                .Where(e => e.PaidByUserId == userId)
-                .Join(_context.ExpenseSplits,
-                      e => e.ExpenseId,
-                      s => s.ExpenseId,
-                      (e, s) => new { e, s })
-                .Where(x => x.s.UserId != userId)
-                .GroupBy(x => x.s.UserId)
-                .Select(g => new PersonAmount
-                {
-                    Name = _context.Users.Where(u => u.UserId == g.Key).Select(u => u.Name).FirstOrDefault() ?? string.Empty, // Fix CS8601
-                    Amount = g.Sum(x => x.s.OwedAmount)
-                })
-                .ToListAsync();
-
-            // Group-wise summary
-            var groupWiseSummary = await _context.Groups
-                .Where(g => groupMemberships.Select(m => m.GroupId).Contains(g.GroupId))
-                .Select(g => new GroupSummary
-                {
-                    GroupId = g.GroupId,
-                    GroupName = g.Name,
-                    NetBalance = (
-                        _context.Expenses
-                            .Where(e => e.GroupId == g.GroupId && e.PaidByUserId == userId)
-                            .Join(_context.ExpenseSplits,
-                                  e => e.ExpenseId,
-                                  s => s.ExpenseId,
-                                  (e, s) => new { e, s })
-                            .Where(x => x.s.UserId != userId)
-                            .Sum(x => (decimal?)x.s.OwedAmount) ?? 0
-                    ) - (
-                        _context.ExpenseSplits
-                            .Where(s => s.UserId == userId)
-                            .Join(_context.Expenses,
-                                  s => s.ExpenseId,
-                                  e => e.ExpenseId,
-                                  (s, e) => new { s, e })
-                            .Where(x => x.e.GroupId == g.GroupId)
-                            .Sum(x => (decimal?)x.s.OwedAmount) ?? 0
-                    )
-                }).ToListAsync();
-
-            var result = new UserDTO
+            try
             {
-                UserId = user.UserId,
-                UserName = user.Name,
-                TotalBalance = youAreOwed - youOwe,
-                YouOwe = youOwe,
-                YouAreOwed = youAreOwed,
-                OweTo = oweTo,
-                OwedFrom = owedFrom,
-                GroupWiseSummary = groupWiseSummary
-            };
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null) return NotFound("User not found");
 
-            return Ok(result);
+                var groupMemberships = await _context.GroupMembers
+                    .Where(gm => gm.UserId == userId)
+                    .Include(gm => gm.Group)
+                    .ToListAsync();
+
+                var totalPaid = await _context.Expenses
+                    .Where(e => e.PaidByUserId == userId)
+                    .SumAsync(e => (decimal?)e.Amount) ?? 0;
+
+                var youOwe = await _context.ExpenseSplits
+                    .Where(s => s.UserId == userId)
+                    .SumAsync(s => (decimal?)s.OwedAmount) ?? 0;
+
+                var youAreOwed = await _context.Expenses
+                    .Where(e => e.PaidByUserId == userId)
+                    .Join(_context.ExpenseSplits, e => e.ExpenseId, s => s.ExpenseId, (e, s) => new { s.UserId, s.OwedAmount })
+                    .Where(x => x.UserId != userId)
+                    .SumAsync(x => (decimal?)x.OwedAmount) ?? 0;
+
+                var oweTo = await _context.ExpenseSplits
+                    .Where(s => s.UserId == userId)
+                    .Join(_context.Expenses, s => s.ExpenseId, e => e.ExpenseId, (s, e) => new { s, e })
+                    .Where(x => x.e.PaidByUserId != userId)
+                    .GroupBy(x => x.e.PaidByUserId)
+                    .Select(g => new PersonAmount
+                    {
+                        Name = _context.Users.Where(u => u.UserId == g.Key).Select(u => u.Name).FirstOrDefault() ?? "",
+                        Amount = g.Sum(x => x.s.OwedAmount)
+                    }).ToListAsync();
+
+                var owedFrom = await _context.Expenses
+                    .Where(e => e.PaidByUserId == userId)
+                    .Join(_context.ExpenseSplits, e => e.ExpenseId, s => s.ExpenseId, (e, s) => new { s.UserId, s.OwedAmount })
+                    .Where(x => x.UserId != userId)
+                    .GroupBy(x => x.UserId)
+                    .Select(g => new PersonAmount
+                    {
+                        Name = _context.Users.Where(u => u.UserId == g.Key).Select(u => u.Name).FirstOrDefault() ?? "",
+                        Amount = g.Sum(x => x.OwedAmount)
+                    }).ToListAsync();
+
+                var groupWiseSummary = await _context.Groups
+                    .Where(g => groupMemberships.Select(m => m.GroupId).Contains(g.GroupId))
+                    .Select(g => new GroupSummary
+                    {
+                        GroupId = g.GroupId,
+                        GroupName = g.Name,
+                        NetBalance =
+                            (_context.Expenses.Where(e => e.GroupId == g.GroupId && e.PaidByUserId == userId)
+                            .Join(_context.ExpenseSplits, e => e.ExpenseId, s => s.ExpenseId, (e, s) => s)
+                            .Where(s => s.UserId != userId).Sum(s => (decimal?)s.OwedAmount) ?? 0)
+                            -
+                            (_context.ExpenseSplits.Where(s => s.UserId == userId)
+                            .Join(_context.Expenses, s => s.ExpenseId, e => e.ExpenseId, (s, e) => new { s, e })
+                            .Where(x => x.e.GroupId == g.GroupId).Sum(x => (decimal?)x.s.OwedAmount) ?? 0)
+                    }).ToListAsync();
+
+                var result = new UserDTO
+                {
+                    UserId = user.UserId,
+                    UserName = user.Name,
+                    TotalBalance = youAreOwed - youOwe,
+                    YouOwe = youOwe,
+                    YouAreOwed = youAreOwed,
+                    OweTo = oweTo,
+                    OwedFrom = owedFrom,
+                    GroupWiseSummary = groupWiseSummary
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while retrieving dashboard: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Gets recent activity (expenses and logs) for a specific user.
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <returns>List of recent activities</returns>
         [HttpGet("recent/{userId}")]
         public async Task<IActionResult> GetRecentActivity(int userId)
         {
-            // Get groupIds where user is a member
-            var groupIds = await _context.GroupMembers
-                .Where(gm => gm.UserId == userId)
-                .Select(gm => gm.GroupId)
-                .ToListAsync();
-
-            // 1️⃣ Fetch recent expenses in those groups
-            var expenses = await _context.Expenses
-                .Include(e => e.ExpenseSplits)
-                .Include(e => e.Group)
-                .Where(e => groupIds.Contains(e.GroupId))
-                .OrderByDescending(e => e.CreatedAt)
-                .Take(20)
-                .ToListAsync();
-
-            var activities = new List<RecentActivityDTO>();
-
-            foreach (var expense in expenses)
+            try
             {
-                var payerName = await _context.Users
-                    .Where(u => u.UserId == expense.PaidByUserId)
-                    .Select(u => u.Name)
-                    .FirstOrDefaultAsync() ?? "Someone";
+                var groupIds = await _context.GroupMembers
+                    .Where(gm => gm.UserId == userId)
+                    .Select(gm => gm.GroupId)
+                    .ToListAsync();
 
-                var userSplit = expense.ExpenseSplits
-                    .FirstOrDefault(s => s.UserId == userId)?.OwedAmount ?? 0;
+                var expenses = await _context.Expenses
+                    .Include(e => e.ExpenseSplits)
+                    .Include(e => e.Group)
+                    .Where(e => groupIds.Contains(e.GroupId))
+                    .OrderByDescending(e => e.CreatedAt)
+                    .Take(20)
+                    .ToListAsync();
 
-                var impactAmount = expense.PaidByUserId == userId
-                    ? expense.Amount - userSplit
-                    : -userSplit;
+                var activities = new List<RecentActivityDTO>();
 
-                activities.Add(new RecentActivityDTO
+                foreach (var expense in expenses)
                 {
-                    Actor = expense.PaidByUserId == userId ? "You" : payerName,
-                    Action = "added",
-                    ExpenseName = expense.Name,
-                    GroupName = expense.Group?.Name ?? "",
-                    CreatedAt = expense.CreatedAt ?? DateTime.MinValue, // Fix CS8629
-                    Impact = new ActivityImpact
-                    {
-                        Type = impactAmount >= 0 ? "get_back" : "owe",
-                        Amount = Math.Abs(impactAmount)
-                    }
-                });
-            }
-
-            // 2️⃣ Fetch activity logs in those groups (including update/delete by anyone)
-            var logs = await _context.ActivityLogs
-                .Where(a => groupIds.Contains(a.GroupId))
-                .OrderByDescending(a => a.CreatedAt)
-                .Take(20)
-                .ToListAsync();
-
-            foreach (var log in logs)
-            {
-                // Get group name synchronously to avoid 'await' in lambda (Fix CS4034)
-                var groupName = await _context.Groups
-                    .Where(g => g.GroupId == log.GroupId)
-                    .Select(g => g.Name)
-                    .FirstOrDefaultAsync() ?? string.Empty;
-
-                // Show "AddExpense" events if the expense is not present in the expenses list
-                bool isAlreadyAdded = activities.Any(a =>
-                    a.Action == "added" &&
-                    a.ExpenseName == log.Description &&
-                    a.GroupName == groupName
-                );
-
-                if (log.ActionType == "AddExpense" && isAlreadyAdded)
-                    continue; // Only skip if already present from expenses
-
-                string actorName;
-                if (log.UserId == userId)
-                {
-                    actorName = "You";
-                }
-                else
-                {
-                    actorName = await _context.Users
-                        .Where(u => u.UserId == log.UserId)
+                    var payerName = await _context.Users
+                        .Where(u => u.UserId == expense.PaidByUserId)
                         .Select(u => u.Name)
                         .FirstOrDefaultAsync() ?? "Someone";
+
+                    var userSplit = expense.ExpenseSplits
+                        .FirstOrDefault(s => s.UserId == userId)?.OwedAmount ?? 0;
+
+                    var impactAmount = expense.PaidByUserId == userId
+                        ? expense.Amount - userSplit
+                        : -userSplit;
+
+                    activities.Add(new RecentActivityDTO
+                    {
+                        Actor = expense.PaidByUserId == userId ? "You" : payerName,
+                        Action = "added",
+                        ExpenseName = expense.Name,
+                        GroupName = expense.Group?.Name ?? "",
+                        CreatedAt = expense.CreatedAt ?? DateTime.MinValue,
+                        Impact = new ActivityImpact
+                        {
+                            Type = impactAmount >= 0 ? "get_back" : "owe",
+                            Amount = Math.Abs(impactAmount)
+                        }
+                    });
                 }
 
-                activities.Add(new RecentActivityDTO
+                var logs = await _context.ActivityLogs
+                    .Where(a => groupIds.Contains(a.GroupId))
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Take(20)
+                    .ToListAsync();
+
+                foreach (var log in logs)
                 {
-                    Actor = actorName,
-                    Action = log.ActionType switch
+                    var groupName = await _context.Groups
+                        .Where(g => g.GroupId == log.GroupId)
+                        .Select(g => g.Name)
+                        .FirstOrDefaultAsync() ?? "";
+
+                    bool isAlreadyAdded = activities.Any(a =>
+                        a.Action == "added" &&
+                        a.ExpenseName == log.Description &&
+                        a.GroupName == groupName
+                    );
+
+                    if (log.ActionType == "AddExpense" && isAlreadyAdded)
+                        continue;
+
+                    string actorName = log.UserId == userId
+                        ? "You"
+                        : await _context.Users
+                            .Where(u => u.UserId == log.UserId)
+                            .Select(u => u.Name)
+                            .FirstOrDefaultAsync() ?? "Someone";
+
+                    activities.Add(new RecentActivityDTO
                     {
-                        "AddExpense" => "added",
-                        "UpdateExpense" => "updated",
-                        "DeleteExpense" => "deleted",
-                        _ => log.ActionType.ToLower()
-                    },
-                    ExpenseName = log.Description ?? string.Empty, // Fix CS8601
-                    GroupName = groupName,
-                    CreatedAt = log.CreatedAt,
-                    Impact = new ActivityImpact
-                    {
-                        Type = "info",
-                        Amount = log.Amount ?? 0m
-                    }
-                });
+                        Actor = actorName,
+                        Action = log.ActionType switch
+                        {
+                            "AddExpense" => "added",
+                            "UpdateExpense" => "updated",
+                            "DeleteExpense" => "deleted",
+                            _ => log.ActionType.ToLower()
+                        },
+                        ExpenseName = log.Description ?? "",
+                        GroupName = groupName,
+                        CreatedAt = log.CreatedAt,
+                        Impact = new ActivityImpact
+                        {
+                            Type = "info",
+                            Amount = log.Amount ?? 0
+                        }
+                    });
+                }
+
+                var sortedActivities = activities
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Take(10)
+                    .ToList();
+
+                return Ok(sortedActivities);
             }
-
-            // 3️⃣ Sort all activities by date and take top 10
-            var sortedActivities = activities
-                .OrderByDescending(a => a.CreatedAt)
-                .Take(10)
-                .ToList();
-
-            return Ok(sortedActivities);
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while fetching recent activity: {ex.Message}");
+            }
         }
-
     }
 }

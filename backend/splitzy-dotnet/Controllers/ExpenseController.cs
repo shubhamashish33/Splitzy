@@ -12,208 +12,210 @@ namespace splitzy_dotnet.Controllers
     public class ExpenseController : ControllerBase
     {
         private readonly SplitzyContext _context;
+
         public ExpenseController(SplitzyContext context)
         {
             _context = context;
         }
 
+        /// <summary>
+        /// Adds a new expense to a group.
+        /// </summary>
+        /// <param name="dto">Expense details</param>
+        /// <returns>Expense creation result</returns>
         [HttpPost("AddExpense")]
-        public async Task<IActionResult> AddExpense([FromBody] CreateExpenseDto dto)
+        public async Task<ActionResult> AddExpense([FromBody] CreateExpenseDto dto)
         {
-            var groupExists = await _context.Groups.AnyAsync(g => g.GroupId == dto.GroupId);
-            if (!groupExists)
-                return BadRequest("Invalid group");
-
-            var isMember = await _context.GroupMembers
-                .AnyAsync(gm => gm.GroupId == dto.GroupId && gm.UserId == dto.PaidByUserId);
-            if (!isMember)
-                return BadRequest("Payer must be a member of the group");
-
-            if (dto.SplitDetails == null || dto.SplitDetails.Count == 0)
-                return BadRequest("Split details required");
-
-            var totalSplit = dto.SplitDetails.Sum(s => s.Amount);
-            if (Math.Abs(totalSplit - dto.Amount) > 0.01m)
-                return BadRequest("Split amounts must total to the expense amount");
-
-            var splitDict = dto.SplitDetails.ToDictionary(s => s.UserId, s => s.Amount);
-
-            var expense = new Expense
+            try
             {
-                Name = dto.Name,
-                Amount = dto.Amount,
-                GroupId = dto.GroupId,
-                PaidByUserId = dto.PaidByUserId,
-                SplitPer = JsonSerializer.Serialize(splitDict),
-                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
-            };
+                if (dto == null)
+                    return BadRequest("Invalid input");
 
-            _context.Expenses.Add(expense);
-            await _context.SaveChangesAsync();
+                var groupExists = await _context.Groups.AnyAsync(g => g.GroupId == dto.GroupId);
+                if (!groupExists)
+                    return BadRequest("Invalid group");
 
-            var splits = dto.SplitDetails.Select(s => new ExpenseSplit
-            {
-                ExpenseId = expense.ExpenseId,
-                UserId = s.UserId,
-                OwedAmount = s.Amount
-            });
+                var isMember = await _context.GroupMembers
+                    .AnyAsync(gm => gm.GroupId == dto.GroupId && gm.UserId == dto.PaidByUserId);
+                if (!isMember)
+                    return BadRequest("Payer must be a member of the group");
 
-            _context.ExpenseSplits.AddRange(splits);
-            await _context.SaveChangesAsync();
+                if (dto.SplitDetails == null || dto.SplitDetails.Count == 0)
+                    return BadRequest("Split details required");
 
-            var groupUserIds = await _context.GroupMembers
-                .Where(gm => gm.GroupId == dto.GroupId)
-                .Select(gm => gm.UserId)
-                .ToListAsync();
+                var totalSplit = dto.SplitDetails.Sum(s => s.Amount);
+                if (Math.Abs(totalSplit - dto.Amount) > 0.01m)
+                    return BadRequest("Split amounts must total to the expense amount");
 
-            var netBalances = groupUserIds.ToDictionary(uid => uid, uid => 0.0m);
+                var splitDict = dto.SplitDetails.ToDictionary(s => s.UserId, s => s.Amount);
 
-            var allExpenses = await _context.Expenses
-                .Where(e => e.GroupId == dto.GroupId)
-                .Include(e => e.ExpenseSplits)
-                .ToListAsync();
-
-            foreach (var exp in allExpenses)
-            {
-                foreach (var split in exp.ExpenseSplits)
+                var expense = new Expense
                 {
-                    if (netBalances.ContainsKey(split.UserId))
-                        netBalances[split.UserId] -= split.OwedAmount;
-                }
+                    Name = dto.Name,
+                    Amount = dto.Amount,
+                    GroupId = dto.GroupId,
+                    PaidByUserId = dto.PaidByUserId,
+                    SplitPer = JsonSerializer.Serialize(splitDict),
+                    CreatedAt = DateTime.UtcNow
+                };
 
-                if (netBalances.ContainsKey(exp.PaidByUserId))
-                    netBalances[exp.PaidByUserId] += exp.Amount;
+                _context.Expenses.Add(expense);
+                await _context.SaveChangesAsync();
+
+                var splits = dto.SplitDetails.Select(s => new ExpenseSplit
+                {
+                    ExpenseId = expense.ExpenseId,
+                    UserId = s.UserId,
+                    OwedAmount = s.Amount
+                });
+
+                _context.ExpenseSplits.AddRange(splits);
+                await _context.SaveChangesAsync();
+
+                await RecalculateSettlementsAsync(dto.GroupId);
+
+                _context.ActivityLogs.Add(new ActivityLog
+                {
+                    GroupId = dto.GroupId,
+                    UserId = dto.PaidByUserId,
+                    ActionType = "AddExpense",
+                    Description = dto.Name,
+                    ExpenseId = expense.ExpenseId,
+                    Amount = dto.Amount,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Expense added successfully",
+                    expenseId = expense.ExpenseId
+                });
             }
-
-            var simplifier = new ExpenseSimplifier();
-            var simplifiedTransactions = simplifier.Simplify(netBalances);
-
-            var settlements = simplifiedTransactions.Select(txn => new Settlement
+            catch (Exception ex)
             {
-                GroupId = dto.GroupId,
-                PaidBy = txn.FromUser,
-                PaidTo = txn.ToUser,
-                Amount = txn.Amount,
-                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
-            });
-
-            _context.Settlements.AddRange(settlements);
-            await _context.SaveChangesAsync();
-
-            _context.ActivityLogs.Add(new ActivityLog
-            {
-                GroupId = dto.GroupId,
-                UserId = dto.PaidByUserId,
-                ActionType = "AddExpense",
-                Description = expense.Name,
-                Expense = expense,
-                ExpenseId = expense.ExpenseId,
-                Amount = expense.Amount,
-                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
-            });
-            await _context.SaveChangesAsync();
-
-            return Ok(new
-            {
-                message = "Expense added successfully",
-                expenseId = expense.ExpenseId,
-                simplifiedTransactions
-            });
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Deletes an expense by ID.
+        /// </summary>
+        /// <param name="expenseId">Expense ID</param>
+        /// <returns>Deletion result</returns>
         [HttpDelete("DeleteExpense/{expenseId}")]
-        public async Task<IActionResult> DeleteExpense(int expenseId)
+        public async Task<ActionResult> DeleteExpense(int expenseId)
         {
-            var expense = await _context.Expenses
-                .Include(e => e.ExpenseSplits)
-                .FirstOrDefaultAsync(e => e.ExpenseId == expenseId);
-
-            if (expense == null)
-                return NotFound("Expense not found");
-
-            var groupId = expense.GroupId;
-
-            _context.ExpenseSplits.RemoveRange(expense.ExpenseSplits);
-
-            _context.ActivityLogs.Add(new ActivityLog
+            try
             {
-                GroupId = groupId,
-                UserId = expense.PaidByUserId,
-                ActionType = "DeleteExpense",
-                Description = expense.Name,
-                ExpenseId = expenseId,
-                Expense = expense,
-                Amount = expense.Amount,
-                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
-            });
-            _context.Expenses.Remove(expense);
+                var expense = await _context.Expenses
+                    .Include(e => e.ExpenseSplits)
+                    .FirstOrDefaultAsync(e => e.ExpenseId == expenseId);
 
-            await _context.SaveChangesAsync();
+                if (expense == null)
+                    return NotFound("Expense not found");
 
-            // Recalculate simplified settlements for the group
-            await RecalculateSettlementsAsync(groupId);
+                var groupId = expense.GroupId;
 
-            return Ok(new { message = "Expense deleted successfully" });
+                _context.ExpenseSplits.RemoveRange(expense.ExpenseSplits);
+
+                _context.ActivityLogs.Add(new ActivityLog
+                {
+                    GroupId = groupId,
+                    UserId = expense.PaidByUserId,
+                    ActionType = "DeleteExpense",
+                    Description = expense.Name,
+                    ExpenseId = expenseId,
+                    Amount = expense.Amount,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                _context.Expenses.Remove(expense);
+                await _context.SaveChangesAsync();
+
+                await RecalculateSettlementsAsync(groupId);
+
+                return Ok(new { message = "Expense deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
         }
+
+        /// <summary>
+        /// Updates an existing expense.
+        /// </summary>
+        /// <param name="dto">Updated expense details</param>
+        /// <returns>Update result</returns>
         [HttpPut("UpdateExpense")]
-        public async Task<IActionResult> UpdateExpense([FromBody] UpdateExpenseDto dto)
+        public async Task<ActionResult> UpdateExpense([FromBody] UpdateExpenseDto dto)
         {
-            var expense = await _context.Expenses
-                .Include(e => e.ExpenseSplits)
-                .FirstOrDefaultAsync(e => e.ExpenseId == dto.ExpenseId);
-
-            if (expense == null)
-                return NotFound("Expense not found");
-
-            var groupExists = await _context.Groups.AnyAsync(g => g.GroupId == dto.GroupId);
-            if (!groupExists)
-                return BadRequest("Invalid group");
-
-            if (dto.SplitDetails == null || dto.SplitDetails.Count == 0)
-                return BadRequest("Split details required");
-
-            var totalSplit = dto.SplitDetails.Sum(s => s.Amount);
-            if (Math.Abs(totalSplit - dto.Amount) > 0.01m)
-                return BadRequest("Split amounts must total to the expense amount");
-
-            // Update fields
-            expense.Name = dto.Name;
-            expense.Amount = dto.Amount;
-            expense.PaidByUserId = dto.PaidByUserId;
-            expense.SplitPer = JsonSerializer.Serialize(dto.SplitDetails.ToDictionary(s => s.UserId, s => s.Amount));
-
-            // Remove old splits
-            _context.ExpenseSplits.RemoveRange(expense.ExpenseSplits);
-
-            // Add new splits
-            var newSplits = dto.SplitDetails.Select(s => new ExpenseSplit
+            try
             {
-                ExpenseId = dto.ExpenseId,
-                UserId = s.UserId,
-                OwedAmount = s.Amount
-            });
-            _context.ExpenseSplits.AddRange(newSplits);
+                var expense = await _context.Expenses
+                    .Include(e => e.ExpenseSplits)
+                    .FirstOrDefaultAsync(e => e.ExpenseId == dto.ExpenseId);
 
-            await _context.SaveChangesAsync();
+                if (expense == null)
+                    return NotFound("Expense not found");
 
-            await RecalculateSettlementsAsync(dto.GroupId);
+                var groupExists = await _context.Groups.AnyAsync(g => g.GroupId == dto.GroupId);
+                if (!groupExists)
+                    return BadRequest("Invalid group");
 
-            _context.ActivityLogs.Add(new ActivityLog
+                if (dto.SplitDetails == null || dto.SplitDetails.Count == 0)
+                    return BadRequest("Split details required");
+
+                var totalSplit = dto.SplitDetails.Sum(s => s.Amount);
+                if (Math.Abs(totalSplit - dto.Amount) > 0.01m)
+                    return BadRequest("Split amounts must total to the expense amount");
+
+                // Update expense
+                expense.Name = dto.Name;
+                expense.Amount = dto.Amount;
+                expense.PaidByUserId = dto.PaidByUserId;
+                expense.SplitPer = JsonSerializer.Serialize(dto.SplitDetails.ToDictionary(s => s.UserId, s => s.Amount));
+
+                _context.ExpenseSplits.RemoveRange(expense.ExpenseSplits);
+
+                var newSplits = dto.SplitDetails.Select(s => new ExpenseSplit
+                {
+                    ExpenseId = dto.ExpenseId,
+                    UserId = s.UserId,
+                    OwedAmount = s.Amount
+                });
+
+                _context.ExpenseSplits.AddRange(newSplits);
+                await _context.SaveChangesAsync();
+
+                await RecalculateSettlementsAsync(dto.GroupId);
+
+                _context.ActivityLogs.Add(new ActivityLog
+                {
+                    GroupId = dto.GroupId,
+                    UserId = dto.PaidByUserId,
+                    ActionType = "UpdateExpense",
+                    Description = dto.Name,
+                    ExpenseId = expense.ExpenseId,
+                    Amount = expense.Amount,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Expense updated successfully" });
+            }
+            catch (Exception ex)
             {
-                GroupId = dto.GroupId,
-                UserId = dto.PaidByUserId,
-                ActionType = "UpdateExpense",
-                Description = dto.Name,
-                Expense = expense,
-                ExpenseId = expense.ExpenseId,
-                Amount = expense.Amount,
-                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
-            });
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Expense updated successfully" });
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Recalculates settlements for the group based on current expenses.
+        /// </summary>
         private async Task RecalculateSettlementsAsync(int groupId)
         {
             var groupUserIds = await _context.GroupMembers
@@ -240,10 +242,10 @@ namespace splitzy_dotnet.Controllers
                     netBalances[exp.PaidByUserId] += exp.Amount;
             }
 
-            // Remove old settlements
             var oldSettlements = await _context.Settlements
                 .Where(s => s.GroupId == groupId)
                 .ToListAsync();
+
             _context.Settlements.RemoveRange(oldSettlements);
 
             var simplifier = new ExpenseSimplifier();
@@ -255,7 +257,7 @@ namespace splitzy_dotnet.Controllers
                 PaidBy = txn.FromUser,
                 PaidTo = txn.ToUser,
                 Amount = txn.Amount,
-                CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
+                CreatedAt = DateTime.UtcNow
             });
 
             _context.Settlements.AddRange(newSettlements);
