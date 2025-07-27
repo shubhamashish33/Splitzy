@@ -1,4 +1,7 @@
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -6,54 +9,72 @@ using splitzy_dotnet.Models;
 using splitzy_dotnet.Services;
 using splitzy_dotnet.Services.Interfaces;
 using System.Reflection;
+using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // JWT Configuration
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-        };
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+    };
+})
+.AddCookie("GoogleCookies") // Give a unique name to the cookie scheme
+.AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
+{
+    options.ClientId = builder.Configuration["Google:ClientId"];
+    options.ClientSecret = builder.Configuration["Google:ClientSecret"];
+    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
+    options.SignInScheme = "GoogleCookies"; // Link to the cookie scheme
+});
 
-        // Enable logging for debugging token issues
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                Console.WriteLine("Authentication failed: " + context.Exception.Message);
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
-            {
-                Console.WriteLine("Token validated successfully.");
-                return Task.CompletedTask;
-            }
-        };
 
-        options.SaveToken = true;
-    });
 
 builder.Services.AddControllers();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("GooglePolicy", policy =>
+    {
+        policy.AuthenticationSchemes.Add("GoogleCookies");
+        policy.RequireAuthenticatedUser();
+    });
+
+    options.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
+    // Include XML comments (optional but useful for documentation)
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
 
-    // Add JWT support in Swagger
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Splitzy API",
+        Version = "v1",
+        Description = "API documentation for Splitzy with JWT auth"
+    });
+
+    // 🔐 Add JWT Bearer scheme to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -61,9 +82,10 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer' followed by a space and your token"
+        Description = "Enter 'Bearer' followed by a space and your JWT token.\nExample: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6..."
     });
 
+    // 🔐 Require JWT token for protected endpoints
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -73,7 +95,10 @@ builder.Services.AddSwaggerGen(c =>
                 {
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
-                }
+                },
+                Scheme = "Bearer",
+                Name = "Authorization",
+                In = ParameterLocation.Header,
             },
             new string[] {}
         }
@@ -102,7 +127,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
-
+app.UseHttpsRedirection();
 app.UseAuthentication(); // This must come BEFORE Authorization
 app.UseAuthorization();
 

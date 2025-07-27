@@ -1,7 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using splitzy_dotnet.DTO;
 using splitzy_dotnet.Models;
 using splitzy_dotnet.Services.Interfaces;
+using System.Security.Claims;
 
 namespace splitzy_dotnet.Controllers
 {
@@ -19,14 +23,24 @@ namespace splitzy_dotnet.Controllers
         }
 
         /// <summary>
+        /// Sample End point for testing
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("Index")]
+        public IActionResult Index()
+        {
+            return Ok("Welcome to Google SSO API!");
+        }
+
+        /// <summary>
         /// Logs in an existing user and returns a JWT token.
         /// </summary>
         /// <param name="user">Login credentials</param>
         /// <returns>JWT Token and User ID</returns>
         [HttpPost("login")]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-        [ProducesResponseType((typeof(ApiResponse<>)),StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType((typeof(ApiResponse<>)),StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status500InternalServerError)]
         public IActionResult Login([FromBody] LoginRequestDTO user)
         {
             if (!ModelState.IsValid)
@@ -52,6 +66,93 @@ namespace splitzy_dotnet.Controllers
                 {
                     Success = false,
                     Message = "Password is incorrect"
+                });
+            }
+
+            var token = _jWTService.GenerateToken(loginUser.UserId);
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Login successful",
+                Data = new
+                {
+                    Id = loginUser.UserId,
+                    Token = token
+                }
+            });
+        }
+        /// <summary>
+        /// Endpoint for SSO Login
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("ssologin")]
+        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status200OK)]
+        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status500InternalServerError)]
+        public IActionResult SSOLogin()
+        {
+            // Edge case: If user is already authenticated, redirect to secure
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                return Redirect("/secure");
+            }
+
+            var props = new AuthenticationProperties
+            {
+                RedirectUri = "/secure"
+            };
+
+            // Edge case: If Google authentication scheme is not configured
+            if (string.IsNullOrEmpty(GoogleDefaults.AuthenticationScheme))
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "Google authentication is not configured."
+                });
+            }
+
+            return Challenge(props, GoogleDefaults.AuthenticationScheme);
+        }
+        /// <summary>
+        /// Secire Endpoint for GoogleOAuth
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("secure")]
+        [Authorize(AuthenticationSchemes = "GoogleCookies", Policy = "GooglePolicy")]
+        public IActionResult Secure()
+        {
+            // Edge case: If user is not authenticated
+            if (User?.Identity == null || !User.Identity.IsAuthenticated)
+            {
+                return Unauthorized(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "User is not authenticated."
+                });
+            }
+
+            var email = User.FindFirst(ClaimTypes.Email)?.Value;
+
+            // Edge case: If email claim is missing
+            if (string.IsNullOrEmpty(email))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "Email claim not found in user identity."
+                });
+            }
+
+            var loginUser = _context.Users.FirstOrDefault(u => u.Email == email);
+
+            // Edge case: If user is not found in database
+            if (loginUser == null)
+            {
+                return NotFound(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "User not registered in the system."
                 });
             }
 
@@ -125,5 +226,6 @@ namespace splitzy_dotnet.Controllers
                 Data = new { Id = user.UserId }
             });
         }
+
     }
 }
