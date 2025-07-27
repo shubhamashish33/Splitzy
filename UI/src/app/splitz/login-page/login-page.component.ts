@@ -4,11 +4,11 @@ import { LoginRequest, SplitzService } from '../splitz.service';
 import { ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { LoaderComponent } from '../loader/loader.component';
-import { SocialAuthService, GoogleLoginProvider, SocialUser } from '@abacritt/angularx-social-login';
 
 
 @Component({
   selector: 'app-login-page',
+  standalone: true,
   imports: [ReactiveFormsModule, CommonModule, LoaderComponent],
   templateUrl: './login-page.component.html',
   styleUrl: './login-page.component.css'
@@ -19,13 +19,17 @@ export class LoginPageComponent {
   errorMessage = '';
   showPassword = false;
   showLoader = false;
-  
+
   constructor(
-    private authService: SocialAuthService,
     private fb: FormBuilder,
     private splitzService: SplitzService
 
   ) {
+    // this.authService.authState.subscribe((user: SocialUser) => {
+    //   if (user) {
+    //     this.splitzService.setUserId(user.id);
+    //   }
+    // });
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]]
@@ -76,7 +80,7 @@ export class LoginPageComponent {
 
             // Store token if provided
             if (response.data.token) {
-              sessionStorage.setItem('token', response.data.token);
+              localStorage.setItem('token', response.data.token);
             }
 
             // Redirect to dashboard with userId in URL
@@ -125,19 +129,6 @@ export class LoginPageComponent {
     return '';
   }
   ssoLogin(): void {
-    this.authService.signIn(GoogleLoginProvider.PROVIDER_ID).then((user: SocialUser) => {
-      if (user) {
-        // Handle successful login with Google
-        console.log('Google login successful:', user);
-        this.splitzService.setUserId(user.id);
-        sessionStorage.setItem('token', user.authToken || '');
-        this.splitzService.redirectToDashboard(user.id);
-      } else {
-        console.error('Google login failed');
-      }
-    }).catch((error: any) => {
-      console.error('Error during Google login:', error);
-      this.errorMessage = 'Google login failed. Please try again.';
-    });
+
   }
 }

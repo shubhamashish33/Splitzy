@@ -3,7 +3,6 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, map, Observable } from 'rxjs';
 import { environment } from '../environments/environment';
-import { GoogleLoginProvider, SocialAuthService, SocialUser } from '@abacritt/angularx-social-login';
 
 export interface LoginRequest {
   email: string;
@@ -38,7 +37,7 @@ export class SplitzService {
   private userIdSubject = new BehaviorSubject<string | null>(null);
   public userId$ = this.userIdSubject.asObservable();
 
-  constructor(private http: HttpClient, private router: Router, private authService: SocialAuthService) { }
+  constructor(private http: HttpClient, private router: Router) { }
 
   login(loginData: LoginRequest): Observable<LoginResponse> {
     const headers = new HttpHeaders({
@@ -55,18 +54,18 @@ export class SplitzService {
   }
 
   setUserId(userId: string): void {
-    sessionStorage.setItem('userId', userId);
+    localStorage.setItem('userId', userId);
     
     this.userIdSubject.next(userId);
   }
 
   getUserId(): string | null {
-    return this.userIdSubject.value || sessionStorage.getItem('userId');
+    return this.userIdSubject.value || localStorage.getItem('userId');
   }
 
   logout(): void {
-    sessionStorage.removeItem('userId');
-    sessionStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('token');
     
     this.userIdSubject.next(null);
     
@@ -113,7 +112,14 @@ export class SplitzService {
     });
     return this.http.get<any[]>(url, { headers });
   }
-  signInWithGoogle(): Promise<SocialUser> {
-    return this.authService.signIn(GoogleLoginProvider.PROVIDER_ID);
-  }
+  onFetchSecureLogin() {
+  const url = `${this.BASE_URL}${this.ENDPOINTS.SECURE}`;
+  const headers = new HttpHeaders({
+    'ngrok-skip-browser-warning': 'true'
+  });
+  return this.http.get<any[]>(url, {
+    headers,
+    withCredentials: true
+  });
+}
 }

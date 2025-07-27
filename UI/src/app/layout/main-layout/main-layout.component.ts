@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { ModalComponent } from '../../splitz/modal/modal.component';
 import { CommonModule } from '@angular/common';
+import { SplitzService } from '../../splitz/splitz.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -17,17 +18,25 @@ export class MainLayoutComponent implements OnInit {
   isModalOpen: boolean = false;
   modalType: 'expense' | 'settle' = 'expense';
   userId: string | null = null;
+  token: string | null = null;
 
-  constructor(private router: Router) {
-    this.userId = sessionStorage.getItem('userId');
-    if (!this.userId) {
+  constructor(private router: Router, private spltizService: SplitzService) {
+    this.userId = localStorage.getItem('userId');
+    this.token = localStorage.getItem('token');
+    if (!this.userId && !this.token) {
       this.router.navigate(['/login']);
+      this.spltizService.onFetchSecureLogin().subscribe((response: any) => {
+        console.log('SSO Login URL:', response);
+        //this need to be changed to a proper redirect.
+      });
+    }
+    else {
     }
   }
 
   ngOnInit(): void {
     // Check userId on component init
-    this.userId = sessionStorage.getItem('userId');
+    this.userId = localStorage.getItem('userId');
   }
 
   openModal(type: 'expense' | 'settle') {
@@ -36,14 +45,14 @@ export class MainLayoutComponent implements OnInit {
   }
 
   navigateToDashboard() {
-    const userId = sessionStorage.getItem('userId');
+    const userId = localStorage.getItem('userId');
     if (userId) {
       this.router.navigate(['/dashboard', userId]);
     }
   }
 
   navigateToRecentActivity() {
-    const userId = sessionStorage.getItem('userId');
+    const userId = localStorage.getItem('userId');
     if (userId) {
       this.router.navigate(['/recent-activity', userId]);
     }
