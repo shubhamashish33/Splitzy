@@ -1,8 +1,9 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, map, Observable } from 'rxjs';
 import { environment } from '../environments/environment';
+import { GoogleLoginProvider, SocialAuthService, SocialUser } from '@abacritt/angularx-social-login';
 
 export interface LoginRequest {
   email: string;
@@ -37,7 +38,7 @@ export class SplitzService {
   private userIdSubject = new BehaviorSubject<string | null>(null);
   public userId$ = this.userIdSubject.asObservable();
 
-  constructor(private http: HttpClient, private router: Router) { }
+  constructor(private http: HttpClient, private router: Router, private authService: SocialAuthService) { }
 
   login(loginData: LoginRequest): Observable<LoginResponse> {
     const headers = new HttpHeaders({
@@ -111,5 +112,8 @@ export class SplitzService {
       'ngrok-skip-browser-warning': 'true'
     });
     return this.http.get<any[]>(url, { headers });
+  }
+  signInWithGoogle(): Promise<SocialUser> {
+    return this.authService.signIn(GoogleLoginProvider.PROVIDER_ID);
   }
 }

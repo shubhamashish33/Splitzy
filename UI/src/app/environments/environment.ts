@@ -1,7 +1,7 @@
 export const environment = {
     production: false,
-    // apiBaseUrl: 'https://f02f1b6b840d.ngrok-free.app',
-    apiBaseUrl: 'https://02f1b6b840d.ngrok-free.app',
+    apiBaseUrl: 'https://42761f8c7efd.ngrok-free.app',
+    // apiBaseUrl: 'https://02f1b6b840d.ngrok-free.app',
     endpoints: {
         LOGIN: '/api/Auth/login',
         REGISTER: '/api/Auth/signup',

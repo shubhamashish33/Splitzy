@@ -1,13 +1,17 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, importProvidersFrom, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http'; // <-- Use this instead of HttpClientModule
-
+import { provideHttpClient } from '@angular/common/http';
 import { routes } from './app.routes';
+import { provideSocialAuthConfig } from './splitz/auth-config';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient() // <-- Add this line
+    provideHttpClient(),
+    {
+      provide: 'SocialAuthServiceConfig',
+      useFactory: provideSocialAuthConfig
+    }
   ]
 };

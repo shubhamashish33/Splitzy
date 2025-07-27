@@ -1,13 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, Inject, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { LoginRequest, SplitzService } from '../splitz.service';
 import { ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { LoaderComponent } from '../loader/loader.component';
+import { SocialAuthService, GoogleLoginProvider, SocialUser } from '@abacritt/angularx-social-login';
 
 
 @Component({
   selector: 'app-login-page',
-  imports: [ReactiveFormsModule, CommonModule],
+  imports: [ReactiveFormsModule, CommonModule, LoaderComponent],
   templateUrl: './login-page.component.html',
   styleUrl: './login-page.component.css'
 })
@@ -16,10 +18,13 @@ export class LoginPageComponent {
   isLoading = false;
   errorMessage = '';
   showPassword = false;
-
+  showLoader = false;
+  
   constructor(
+    private authService: SocialAuthService,
     private fb: FormBuilder,
-    private splitzService: SplitzService,
+    private splitzService: SplitzService
+
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -61,10 +66,12 @@ export class LoginPageComponent {
 
       this.splitzService.login(loginData).subscribe({
         next: (response: any) => {
+          this.showLoader = true;
           this.isLoading = false;
 
           if (response.success && response.data.id) {
             // Store user ID in service and session
+            this.showLoader = false;
             this.splitzService.setUserId(response.data.id);
 
             // Store token if provided
@@ -75,11 +82,13 @@ export class LoginPageComponent {
             // Redirect to dashboard with userId in URL
             this.splitzService.redirectToDashboard(response.data.id);
           } else {
+            this.showLoader = false;
             this.errorMessage = response.message || 'Login failed. Please try again.';
           }
         },
         error: (error: any) => {
           this.isLoading = false;
+          this.showLoader = false;
           console.error('Login error:', error);
 
           if (error.status === 401) {
@@ -114,5 +123,21 @@ export class LoginPageComponent {
     }
 
     return '';
+  }
+  ssoLogin(): void {
+    this.authService.signIn(GoogleLoginProvider.PROVIDER_ID).then((user: SocialUser) => {
+      if (user) {
+        // Handle successful login with Google
+        console.log('Google login successful:', user);
+        this.splitzService.setUserId(user.id);
+        sessionStorage.setItem('token', user.authToken || '');
+        this.splitzService.redirectToDashboard(user.id);
+      } else {
+        console.error('Google login failed');
+      }
+    }).catch((error: any) => {
+      console.error('Error during Google login:', error);
+      this.errorMessage = 'Google login failed. Please try again.';
+    });
   }
 }
