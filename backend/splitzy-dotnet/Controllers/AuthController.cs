@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication;
+﻿using Google.Apis.Auth;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,11 +16,13 @@ namespace splitzy_dotnet.Controllers
     {
         private readonly SplitzyContext _context;
         private readonly IJWTService _jWTService;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(SplitzyContext context, IJWTService jWTService)
+        public AuthController(SplitzyContext context, IJWTService jWTService, IConfiguration configuration)
         {
             _context = context;
             _jWTService = jWTService;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -82,6 +85,8 @@ namespace splitzy_dotnet.Controllers
                 }
             });
         }
+
+
         /// <summary>
         /// Endpoint for SSO Login
         /// </summary>
@@ -91,34 +96,21 @@ namespace splitzy_dotnet.Controllers
         [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status500InternalServerError)]
         public IActionResult SSOLogin()
         {
-            // Edge case: If user is already authenticated, redirect to secure
-            if (User.Identity?.IsAuthenticated == true)
-            {
-                return Redirect("/secure");
-            }
-
+            // ✅ Step 2: Trigger Google Login
             var props = new AuthenticationProperties
             {
-                RedirectUri = "/secure"
+                RedirectUri = "http://localhost:4200"
             };
-
-            // Edge case: If Google authentication scheme is not configured
-            if (string.IsNullOrEmpty(GoogleDefaults.AuthenticationScheme))
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<string>
-                {
-                    Success = false,
-                    Message = "Google authentication is not configured."
-                });
-            }
 
             return Challenge(props, GoogleDefaults.AuthenticationScheme);
         }
+
         /// <summary>
         /// Secire Endpoint for GoogleOAuth
         /// </summary>
         /// <returns></returns>
         [HttpGet("secure")]
+        //[ApiExplorerSettings(IgnoreApi = true)]
         [Authorize(AuthenticationSchemes = "GoogleCookies", Policy = "GooglePolicy")]
         public IActionResult Secure()
         {
@@ -169,6 +161,7 @@ namespace splitzy_dotnet.Controllers
                 }
             });
         }
+
 
         /// <summary>
         /// Registers a new user.
@@ -226,6 +219,56 @@ namespace splitzy_dotnet.Controllers
                 Data = new { Id = user.UserId }
             });
         }
+
+
+        /// <summary>
+        /// Logs out the current user by clearing authentication cookies (if any).
+        /// </summary>
+        /// <returns>Logout status</returns>
+        [HttpPost("logout")]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+        public IActionResult Logout()
+        {
+            // If using cookies, sign out from authentication schemes
+            HttpContext.SignOutAsync();
+            return Ok(new ApiResponse<string>
+            {
+                Success = true,
+                Message = "Logged out successfully."
+            });
+        }
+
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] string idToken)
+        {
+            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = new[] { _configuration["Google:ClientId"] }
+            });
+
+            var email = payload.Email;
+
+            var user = _context.Users.FirstOrDefault(u => u.Email == email);
+
+            if (user == null)
+            {
+                return NotFound(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "User not registered"
+                });
+            }
+
+            var token = _jWTService.GenerateToken(user.UserId);
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Login successful",
+                Data = new { Id = user.UserId, Token = token }
+            });
+        }
+
 
     }
 }

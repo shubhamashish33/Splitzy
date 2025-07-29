@@ -14,37 +14,44 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// JWT Configuration
+
+#region Authentication Region
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-    };
+options.TokenValidationParameters = new TokenValidationParameters
+{
+ValidateIssuer = true,
+ValidateAudience = true,
+ValidateLifetime = true,
+ValidateIssuerSigningKey = true,
+ValidIssuer = builder.Configuration["Jwt:Issuer"],
+ValidAudience = builder.Configuration["Jwt:Audience"],
+IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+};
 })
-.AddCookie("GoogleCookies") // Give a unique name to the cookie scheme
+.AddCookie("GoogleCookies", options =>
+{
+options.Cookie.Name = ".AspNetCore.GoogleCookies";
+options.Cookie.SameSite = SameSiteMode.None;
+options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+})
 .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
 {
-    options.ClientId = builder.Configuration["Google:ClientId"];
-    options.ClientSecret = builder.Configuration["Google:ClientSecret"];
-    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
-    options.SignInScheme = "GoogleCookies"; // Link to the cookie scheme
-});
-
-
+options.ClientId = builder.Configuration["Google:ClientId"];
+options.ClientSecret = builder.Configuration["Google:ClientSecret"];
+options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
+options.SignInScheme = "GoogleCookies"; // Link to the cookie scheme
+}); 
+#endregion
 
 builder.Services.AddControllers();
+
+#region Authorization Config
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("GooglePolicy", policy =>
@@ -54,12 +61,14 @@ builder.Services.AddAuthorization(options =>
     });
 
     options.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
-        .RequireAuthenticatedUser()
-        .Build();
+    .RequireAuthenticatedUser()
+    .Build();
 });
-
+#endregion
 
 builder.Services.AddEndpointsApiExplorer();
+
+#region Swagger Configuration
 builder.Services.AddSwaggerGen(c =>
 {
     // Include XML comments (optional but useful for documentation)
@@ -87,7 +96,7 @@ builder.Services.AddSwaggerGen(c =>
 
     // 🔐 Require JWT token for protected endpoints
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+{
         {
             new OpenApiSecurityScheme
             {
@@ -102,18 +111,24 @@ builder.Services.AddSwaggerGen(c =>
             },
             new string[] {}
         }
-    });
 });
+});
+#endregion
 
 builder.Services.AddScoped<IJWTService, JWTService>();
 
+#region CORS Config
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        policy.WithOrigins(
+               "http://localhost:4200",                  // Local Angular
+               "https://42761f8c7efd.ngrok-free.app"     // Ngrok public URL
+           ).AllowAnyMethod().AllowAnyHeader().AllowCredentials();
     });
 });
+#endregion
 
 builder.Services.AddDbContext<SplitzyContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
