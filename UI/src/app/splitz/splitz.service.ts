@@ -104,7 +104,7 @@ export class SplitzService {
     });
     return this.http.get<any[]>(url, { headers });
   }
-  onFetchSecureLogin() {
+  onFetchSecureLogin(): Observable<LoginResponse> {
     const url = `${this.BASE_URL}${this.ENDPOINTS.SECURE}`;
     const headers = new HttpHeaders({
       'ngrok-skip-browser-warning': 'true'
@@ -113,5 +113,8 @@ export class SplitzService {
       headers,
       withCredentials: true
     });
+  }
+  ssoLoginRedirect() {
+    window.location.href = `${this.BASE_URL}${this.ENDPOINTS.SSOLOGIN}`;
   }
 }

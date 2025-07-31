@@ -104,7 +104,7 @@
                 <!-- Sign Up Link -->
                 <div class="text-center space-y-4">    
                     <!-- New Google SSO button -->
-                    <button onclick="window.open('https://42761f8c7efd.ngrok-free.app/api/Auth/ssologin', '_self')" class="w-full py-2 px-4 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                    <button type="button" (click)="ssoLogin()" class="w-full py-2 px-4 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
                         <i class="fab fa-google text-xl"></i>
                         Sign in with Google
                     </button>

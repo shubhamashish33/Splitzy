@@ -81,7 +81,7 @@ export class LoginPageComponent {
 
             // Store token if provided
             if (response.data.token) {
-              localStorage.setItem('token', response.data.token);
+              this.splitzService.setToken(response.data.token);
             }
 
             // Redirect to dashboard with userId in URL
@@ -130,6 +130,8 @@ export class LoginPageComponent {
     return '';
   }
   ssoLogin(): void {
+    this.splitzService.ssoLoginRedirect();
+    // window.open('https://42761f8c7efd.ngrok-free.app/api/Auth/ssologin', '_self')
 
   }
 }
