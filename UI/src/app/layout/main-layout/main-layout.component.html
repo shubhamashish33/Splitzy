@@ -93,6 +93,7 @@
     
     <main class="content">
         <app-modal *ngIf="isModalOpen" [type]="modalType" (close)="isModalOpen = false"></app-modal>
-        <router-outlet></router-outlet>
+        <app-loader *ngIf="showLoader"></app-loader>
+        <router-outlet *ngIf="!showLoader"></router-outlet>
     </main>
 </div>

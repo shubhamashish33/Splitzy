@@ -1,9 +1,10 @@
 import { Component, Inject, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { LoginRequest, SplitzService } from '../splitz.service';
+import { SplitzService } from '../splitz.service';
 import { ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { LoaderComponent } from '../loader/loader.component';
+import { LoginRequest, LoginResponse } from '../splitz.model';
 
 
 @Component({
@@ -69,7 +70,7 @@ export class LoginPageComponent {
       };
 
       this.splitzService.login(loginData).subscribe({
-        next: (response: any) => {
+        next: (response: LoginResponse) => {
           this.showLoader = true;
           this.isLoading = false;
 
@@ -84,7 +85,7 @@ export class LoginPageComponent {
             }
 
             // Redirect to dashboard with userId in URL
-            this.splitzService.redirectToDashboard(response.data.id);
+            this.splitzService.redirectToDashboard(response.data.id.toString());
           } else {
             this.showLoader = false;
             this.errorMessage = response.message || 'Login failed. Please try again.';

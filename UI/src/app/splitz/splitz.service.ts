@@ -3,30 +3,8 @@ import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, map, Observable } from 'rxjs';
 import { environment } from '../environments/environment';
+import { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from './splitz.model';
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  success: boolean;
-  message: string;
-  data: {
-    id: number;
-    token: string;
-  };
-}
-export interface RegisterRequest {
-  name: string;
-  email: string;
-  password: string;
-}
-export interface RegisterResponse {
-  success: boolean;
-  id?: string;
-  message?: string;
-}
 @Injectable({
   providedIn: 'root'
 })
@@ -35,7 +13,9 @@ export class SplitzService {
   private readonly ENDPOINTS = environment.endpoints;
 
   private userIdSubject = new BehaviorSubject<string | null>(null);
+  private tokenSubject = new BehaviorSubject<string | null>(null);
   public userId$ = this.userIdSubject.asObservable();
+  public token$ = this.tokenSubject.asObservable();
 
   constructor(private http: HttpClient, private router: Router) { }
 
@@ -53,14 +33,26 @@ export class SplitzService {
     return this.http.post<RegisterResponse>(`${this.BASE_URL}${this.ENDPOINTS.REGISTER}`, registerData, { headers });
   }
 
-  setUserId(userId: string): void {
-    localStorage.setItem('userId', userId);
+  setUserId(userId: number): void {
+    const userIdStr = userId.toString();
+    localStorage.setItem('userId', userIdStr);
     
-    this.userIdSubject.next(userId);
+    this.userIdSubject.next(userIdStr);
   }
 
   getUserId(): string | null {
     return this.userIdSubject.value || localStorage.getItem('userId');
+  }
+
+  setToken(userId: string): void {
+    const userIdStr = userId.toString();
+    localStorage.setItem('token', userIdStr);
+    
+    this.userIdSubject.next(userIdStr);
+  }
+
+  getToken(): string | null {
+    return this.userIdSubject.value || localStorage.getItem('token');
   }
 
   logout(): void {
@@ -113,13 +105,13 @@ export class SplitzService {
     return this.http.get<any[]>(url, { headers });
   }
   onFetchSecureLogin() {
-  const url = `${this.BASE_URL}${this.ENDPOINTS.SECURE}`;
-  const headers = new HttpHeaders({
-    'ngrok-skip-browser-warning': 'true'
-  });
-  return this.http.get<any[]>(url, {
-    headers,
-    withCredentials: true
-  });
-}
+    const url = `${this.BASE_URL}${this.ENDPOINTS.SECURE}`;
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    return this.http.get<LoginResponse>(url, {
+      headers,
+      withCredentials: true
+    });
+  }
 }
