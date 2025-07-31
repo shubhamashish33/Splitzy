@@ -52,7 +52,7 @@ export class SplitzService {
   }
 
   getToken(): string | null {
-    return this.userIdSubject.value || localStorage.getItem('token');
+    return this.tokenSubject.value || localStorage.getItem('token');
   }
 
   logout(): void {
