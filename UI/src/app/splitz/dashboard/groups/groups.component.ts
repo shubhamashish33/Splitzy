@@ -1,6 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule, Location } from '@angular/common';
+import { SplitzService } from '../../splitz.service';
+import { firstValueFrom } from 'rxjs';
+import { ExpenseModalComponent } from '../expense-modal/expense-modal.component';
 
 export interface Group {
   id: number;
@@ -15,6 +18,7 @@ export interface Group {
   selector: 'app-groups',
   imports: [
     CommonModule,
+    ExpenseModalComponent
   ],
   templateUrl: './groups.component.html',
   styleUrls: ['./groups.component.css']
@@ -23,11 +27,17 @@ export class GroupsComponent implements OnInit {
   groupId: number = 0;
   groupData: Group | null = null;
   activeTab: string = 'expenses'; // Default active tab
+  userId: any;
+  expenses: any[] = [];
+  members: any[] = [];
+  balanceSummary: any[] = [];
+  showExpenseModal = false;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private location: Location
+    private location: Location,
+    private splitzService: SplitzService
   ) {}
 
   ngOnInit(): void {
@@ -37,7 +47,8 @@ export class GroupsComponent implements OnInit {
   // Method 3: Getting data from route parameters (ID only)
   private getDataFromRouteParams(): void {
     this.route.params.subscribe(params => {
-      this.groupId = +params['id']; // Convert string to number
+      this.userId = params['userId'];
+      this.groupId = +params['groupId']; // Convert string to number
       console.log('Group ID from route:', this.groupId);
       
       // If no data from state/query, fetch from service/API
@@ -48,34 +59,26 @@ export class GroupsComponent implements OnInit {
   }
 
   // Method 4: Fetch data from service/API if not available
-  private fetchGroupData(groupId: number): void {
-    // Replace with actual service call
-    // this.groupService.getGroup(groupId).subscribe(group => {
-    //   this.groupData = group;
-    // });
-    
-    // Mock data for demonstration
-    const mockGroups: Group[] = [
-      { 
-        id: 1, 
-        name: 'Tin Factory', 
-        balance: 1250, 
-        description: 'Office expenses and team outings',
-        memberCount: 5,
-        createdDate: new Date('2024-01-15')
-      },
-      { 
-        id: 2, 
-        name: 'Weekend Trip', 
-        balance: -500, 
-        description: 'Goa vacation expenses',
-        memberCount: 8,
-        createdDate: new Date('2024-02-20')
-      }
-    ];
-    
-    this.groupData = mockGroups.find(g => g.id === groupId) || null;
-    console.log('Group data fetched:', this.groupData);
+  private async fetchGroupData(groupId: number): Promise<void> {
+    try {
+      const data: any = await firstValueFrom(this.splitzService.onFetchGroupData(this.userId, groupId));
+      console.log(data);
+      this.groupData = {
+        id: data.groupId,
+        name: data.name,
+        balance: data.balances?.totalBalance ?? data.groupBalance ?? 0,
+        description: '',
+        memberCount: data.membersCount,
+        createdDate: data.created
+      };
+      this.expenses = data.expenses || [];
+      this.members = data.members || [];
+      this.balanceSummary = data.userSummaries || [];
+      console.log('Group data fetched:', this.groupData);
+    } catch (error) {
+      console.error('Error fetching group data:', error);
+      this.groupData = null;
+    }
   }
 
   // Navigation helper methods
@@ -112,5 +115,25 @@ export class GroupsComponent implements OnInit {
     if (this.groupData) {
       this.router.navigate(['/group', this.groupData.id, 'add-member']);
     }
+  }
+
+  openExpenseModal() {
+    this.showExpenseModal = true;
+  }
+
+  handleExpenseSave(expense: any) {
+    console.log('New expense:', expense);
+    // TODO: Call your service to save the expense
+    this.showExpenseModal = false;
+    this.splitzService.onSaveExpense(expense).subscribe({
+      next: (response) => {
+        console.log('Expense saved successfully:', response);
+        // Optionally, refresh the group data or show a success message
+        this.fetchGroupData(this.groupId);
+      },
+      error: (error) => {
+        console.error('Error saving expense:', error);
+      }
+    });
   }
 }

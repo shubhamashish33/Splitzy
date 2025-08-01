@@ -1,14 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
-
+import { Router, RouterModule, ActivatedRoute } from '@angular/router'; // <-- Import ActivatedRoute
+import { SplitzService } from '../splitz.service';
 export interface Group {
-  id: number;
+  groupId: number;
+  groupName: string;
+  netBalance: number;
+}
+export interface OwedFrom {
   name: string;
-  balance: number;
-  description?: string;
-  memberCount?: number;
-  createdDate?: Date;
+  amount: number;
 }
 
 @Component({
@@ -20,41 +21,90 @@ export interface Group {
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit, OnDestroy {
 
-  public val: number = 14;
-  groups: Group[] = [
-    { 
-      id: 1, 
-      name: 'Tin Factory', 
-      balance: 1250, 
-      description: 'Office expenses and team outings',
-      memberCount: 5,
-      createdDate: new Date('2024-01-15')
-    },
-    { 
-      id: 2, 
-      name: 'Weekend Trip', 
-      balance: -500, 
-      description: 'Goa vacation expenses',
-      memberCount: 8,
-      createdDate: new Date('2024-02-20')
-    },
-    { 
-      id: 3, 
-      name: 'Office Lunch', 
-      balance: 200, 
-      description: 'Daily lunch expenses',
-      memberCount: 12,
-      createdDate: new Date('2024-03-01')
-    }
-  ];
-  constructor(private router: Router) {
-    // Initialization logic can go here
+  public userName: string = '';
+  public totalBalance: number = 0;
+  public youOwe: number = 0;
+  public youAreOwed: number = 0;
+  public oweTo: any[] = [];
+  public owedFrom: OwedFrom[] = [];
+  public groups: Group[] = [];
+  public userId: number | null = null;
+
+  constructor(
+    private router: Router,
+    private route: ActivatedRoute, // <-- Inject ActivatedRoute
+    private splitzService: SplitzService
+  ) { }
+
+  ngOnInit(): void {
+    // Get the id from the route, default to 1 if not present
+    // this.userId = Number(this.route.snapshot.paramMap.get('user')) || 1;
+    this.getDataFromRouteParam();
   }
+
+  private getDataFromRouteParam(): void {
+    this.route.params.subscribe(params => {
+      this.userId = +params['userId'];
+      this.onloadDashboardData(this.userId);
+
+    });
+  }
+
+  onloadDashboardData(id: number) {
+    this.splitzService.onFetchDashboardData(id).subscribe((data: any) => {
+      console.log(data);
+      this.userName = data.userName;
+      this.totalBalance = data.totalBalance;
+      this.youOwe = data.youOwe;
+      this.youAreOwed = data.youAreOwed;
+      this.oweTo = data.oweTo;
+      this.owedFrom = data.owedFrom;
+      this.groups = data.groupWiseSummary;
+      this.userId = data.userId;
+    });
+  }
+
   navigateToGroup(groupId: number): void {
-    this.router.navigate(['/group', groupId]);
+    this.router.navigate(['/group', this.userId, groupId]);
+  }
+  getCurrentDate(): string {
+    return new Date().toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   }
 
+  getInitials(name: string): string {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase())
+      .join('')
+      .substring(0, 2);
+  }
 
+  getGroupStatus(netBalance: number): string {
+    if (netBalance > 0) {
+      return 'You are owed';
+    } else if (netBalance < 0) {
+      return 'You owe';
+    } else {
+      return 'Settled up';
+    }
+  }
+
+  trackByPersonName(index: number, person: any): string {
+    return person.name;
+  }
+
+  trackByGroupId(index: number, group: any): string {
+    return group.groupId;
+  }
+
+  ngOnDestroy(): void {
+    console.clear();
+  }
 }
