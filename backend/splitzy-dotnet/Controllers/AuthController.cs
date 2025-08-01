@@ -225,12 +225,22 @@ namespace splitzy_dotnet.Controllers
         /// Logs out the current user by clearing authentication cookies (if any).
         /// </summary>
         /// <returns>Logout status</returns>
-        [HttpPost("logout")]
+        [HttpGet("logout")]
         [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout()
         {
-            // If using cookies, sign out from authentication schemes
-            HttpContext.SignOutAsync();
+            // Explicitly sign out of the GoogleCookies scheme
+            await HttpContext.SignOutAsync("GoogleCookies");
+
+            // Manually remove the cookie (sends expired Set-Cookie header)
+            Response.Cookies.Append(".AspNetCore.GoogleCookies", "", new CookieOptions
+            {
+                Expires = DateTimeOffset.UnixEpoch,
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None
+            });
+
             return Ok(new ApiResponse<string>
             {
                 Success = true,

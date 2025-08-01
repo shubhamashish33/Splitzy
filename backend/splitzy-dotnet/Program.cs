@@ -18,35 +18,49 @@ var builder = WebApplication.CreateBuilder(args);
 #region Authentication Region
 builder.Services.AddAuthentication(options =>
 {
-options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
-options.TokenValidationParameters = new TokenValidationParameters
-{
-ValidateIssuer = true,
-ValidateAudience = true,
-ValidateLifetime = true,
-ValidateIssuerSigningKey = true,
-ValidIssuer = builder.Configuration["Jwt:Issuer"],
-ValidAudience = builder.Configuration["Jwt:Audience"],
-IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-};
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+    };
 })
 .AddCookie("GoogleCookies", options =>
 {
-options.Cookie.Name = ".AspNetCore.GoogleCookies";
-options.Cookie.SameSite = SameSiteMode.None;
-options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.Name = ".AspNetCore.GoogleCookies";
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+
+    options.LoginPath = "/unauthorized"; // 👈 prevent default redirect path fallback
+
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
 })
 .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
 {
-options.ClientId = builder.Configuration["Google:ClientId"];
-options.ClientSecret = builder.Configuration["Google:ClientSecret"];
-options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
-options.SignInScheme = "GoogleCookies"; // Link to the cookie scheme
-}); 
+    options.ClientId = builder.Configuration["Google:ClientId"];
+    options.ClientSecret = builder.Configuration["Google:ClientSecret"];
+    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
+    options.SignInScheme = "GoogleCookies"; // Link to the cookie scheme
+});
 #endregion
 
 builder.Services.AddControllers();
