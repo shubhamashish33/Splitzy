@@ -19,6 +19,8 @@ public partial class Expense
 
     public DateTime? CreatedAt { get; set; }
 
+    public virtual ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
+
     public virtual ICollection<ExpenseSplit> ExpenseSplits { get; set; } = new List<ExpenseSplit>();
 
     public virtual Group Group { get; set; } = null!;
