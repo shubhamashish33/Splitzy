@@ -79,4 +79,8 @@ export class MainLayoutComponent implements OnInit {
       this.router.navigate(['/recent-activity', userId]);
     }
   }
+  logout() {
+    this.spltizService.logout();
+    this.router.navigate(['/login']);
+  }
 }

@@ -56,11 +56,21 @@ export class SplitzService {
   }
 
   logout(): void {
+    const url = `${this.BASE_URL}${this.ENDPOINTS.LOGOUT}`;
+    const headers = new HttpHeaders({
+      'ngrok-skip-browser-warning': 'true'
+    });
+    this.http.get(url, { headers }).subscribe({
+      next: () => {
+        console.log('Logout successful');
+      },
+      error: (error) => {
+        console.error('Logout failed', error);
+      }
+    });
     localStorage.removeItem('userId');
     localStorage.removeItem('token');
-    
     this.userIdSubject.next(null);
-    
     this.router.navigate(['/login']);
   }
 
