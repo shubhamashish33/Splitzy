@@ -14,8 +14,16 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+#region Configuration
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json",
+        optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+#endregion
 
-#region Authentication Region
+#region Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -31,7 +39,9 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
+        )
     };
 })
 .AddCookie("GoogleCookies", options =>
@@ -40,7 +50,7 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 
-    options.LoginPath = "/unauthorized"; // 👈 prevent default redirect path fallback
+    options.LoginPath = "/unauthorized";
 
     options.Events.OnRedirectToLogin = context =>
     {
@@ -56,8 +66,8 @@ builder.Services.AddAuthentication(options =>
 })
 .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
 {
-    options.ClientId = builder.Configuration["Google:ClientId"];
-    options.ClientSecret = builder.Configuration["Google:ClientSecret"];
+    options.ClientId = builder.Configuration["Google:ClientId"]!;
+    options.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
     options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
     options.SignInScheme = "GoogleCookies";
     options.CallbackPath = "/api/signin-google";
@@ -66,7 +76,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddControllers();
 
-#region Authorization Config
+#region Authorization
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("GooglePolicy", policy =>
@@ -76,17 +86,16 @@ builder.Services.AddAuthorization(options =>
     });
 
     options.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
-    .RequireAuthenticatedUser()
-    .Build();
+        .RequireAuthenticatedUser()
+        .Build();
 });
 #endregion
 
 builder.Services.AddEndpointsApiExplorer();
 
-#region Swagger Configuration
+#region Swagger
 builder.Services.AddSwaggerGen(c =>
 {
-    // Include XML comments (optional but useful for documentation)
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
@@ -95,10 +104,9 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Splitzy API",
         Version = "v1",
-        Description = "API documentation for Splitzy with JWT auth"
+        Description = "Splitzy API with JWT Authentication"
     });
 
-    // 🔐 Add JWT Bearer scheme to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -106,12 +114,11 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer' followed by a space and your JWT token.\nExample: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+        Description = "Bearer {your JWT token}"
     });
 
-    // 🔐 Require JWT token for protected endpoints
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
-{
+    {
         {
             new OpenApiSecurityScheme
             {
@@ -119,38 +126,59 @@ builder.Services.AddSwaggerGen(c =>
                 {
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
-                },
-                Scheme = "Bearer",
-                Name = "Authorization",
-                In = ParameterLocation.Header,
+                }
             },
-            new string[] {}
+            Array.Empty<string>()
         }
-});
+    });
 });
 #endregion
 
 builder.Services.AddScoped<IJWTService, JWTService>();
 
-#region CORS Config
+#region CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
         policy.WithOrigins(
-               "http://localhost:4200",                  // Local Angular
-               "https://42761f8c7efd.ngrok-free.app"     // Ngrok public URL
-           ).AllowAnyMethod().AllowAnyHeader().AllowCredentials();
+                "http://localhost:4200",
+                "https://42761f8c7efd.ngrok-free.app"
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
     });
 });
 #endregion
 
+#region Database
 builder.Services.AddDbContext<SplitzyContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    var pgHost = builder.Configuration["POSTGRES_HOST"];
+    var pgDb = builder.Configuration["POSTGRES_DB"];
+    var pgUser = builder.Configuration["POSTGRES_USER"];
+    var pgPassword = builder.Configuration["POSTGRES_PASSWORD"];
+
+    string connectionString;
+
+    if (!string.IsNullOrWhiteSpace(pgHost))
+    {
+        connectionString =
+            $"Host={pgHost};Database={pgDb};Username={pgUser};Password={pgPassword}";
+    }
+    else
+    {
+        connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+    }
+
+    options.UseNpgsql(connectionString);
+});
+#endregion
 
 var app = builder.Build();
 
-#region DB Migration Script
+#region Auto DB Migration
 using (var scope = app.Services.CreateScope())
 {
     try
@@ -160,7 +188,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Migration failed: {ex.Message}");
+        Console.WriteLine($"❌ Migration failed: {ex.Message}");
         throw;
     }
 }
@@ -171,7 +199,7 @@ app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
-app.UseAuthentication(); // This must come BEFORE Authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
