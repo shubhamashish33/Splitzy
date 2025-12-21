@@ -22,11 +22,11 @@ Splitzy is a modern expense sharing platform that simplifies splitting bills and
 
 ## Tech Stack
 
-- **Frontend**: [Add your frontend tech - e.g., React, Vue.js, Angular]
-- **Backend**: [Add your backend tech - e.g., Node.js, Python, Java]
-- **Database**: [Add your database - e.g., MongoDB, PostgreSQL, MySQL]
-- **Authentication**: [Add auth method - e.g., JWT, OAuth]
-- **Deployment**: [Add deployment platform - e.g., Vercel, Heroku, AWS]
+- **Frontend**: Angular
+- **Backend**: DotNet
+- **Database**: MySQL
+- **Authentication**: OAuth
+- **Deployment**: Vercel
 
 ## Getting Started
 
