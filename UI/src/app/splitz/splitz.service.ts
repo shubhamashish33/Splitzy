@@ -44,11 +44,11 @@ export class SplitzService {
     return this.userIdSubject.value || localStorage.getItem('userId');
   }
 
-  setToken(userId: string): void {
-    const userIdStr = userId.toString();
-    localStorage.setItem('token', userIdStr);
+  setToken(token: string): void {
+    const tokenStr = token.toString();
+    localStorage.setItem('token', tokenStr);
     
-    this.userIdSubject.next(userIdStr);
+    this.tokenSubject.next(tokenStr);
   }
 
   getToken(): string | null {

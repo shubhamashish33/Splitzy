@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { SplitzService } from '../../splitz/splitz.service';
 import { LoginResponse } from '../../splitz/splitz.model';
 import { LoaderComponent } from '../../splitz/loader/loader.component';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-main-layout',
@@ -33,6 +34,20 @@ export class MainLayoutComponent implements OnInit {
     this.checkAuthStatus();
   }
   checkAuthStatus() {
+    // If bypassAuthOnLocalhost is enabled and running on localhost, bypass auth checks to ease local development and open dashboard.
+    if (environment.bypassAuthOnLocalhost && this.isLocalhost()) {
+      this.showLoader = false;
+      const localUserId = localStorage.getItem('userId') || '1';
+      // Ensure SplitzService state is updated for downstream components
+      this.spltizService.setUserId(Number(localUserId));
+      // no token for local development
+      try { this.spltizService.setToken(''); } catch {}
+      this.userId = localUserId;
+      this.token = '';
+      this.router.navigate(['/dashboard', this.userId]);
+      return;
+    }
+
     if (this.userId && this.token) {
       this.showLoader = false;
       this.router.navigate(['/dashboard', this.userId]);
@@ -59,6 +74,15 @@ export class MainLayoutComponent implements OnInit {
         this.router.navigate(['/login']);
       }
     })
+  }
+
+  isLocalhost(): boolean {
+    try {
+      const host = window?.location?.hostname || '';
+      return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    } catch {
+      return false;
+    }
   }
 
   openModal(type: 'expense' | 'settle') {
