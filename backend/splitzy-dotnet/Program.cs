@@ -59,7 +59,8 @@ builder.Services.AddAuthentication(options =>
     options.ClientId = builder.Configuration["Google:ClientId"];
     options.ClientSecret = builder.Configuration["Google:ClientSecret"];
     options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
-    options.SignInScheme = "GoogleCookies"; // Link to the cookie scheme
+    options.SignInScheme = "GoogleCookies";
+    options.CallbackPath = "/api/signin-google";
 });
 #endregion
 
@@ -149,11 +150,24 @@ builder.Services.AddDbContext<SplitzyContext>(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+#region DB Migration Script
+using (var scope = app.Services.CreateScope())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<SplitzyContext>();
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Migration failed: {ex.Message}");
+        throw;
+    }
 }
+#endregion
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();

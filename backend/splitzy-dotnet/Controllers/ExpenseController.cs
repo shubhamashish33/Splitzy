@@ -259,7 +259,7 @@ namespace splitzy_dotnet.Controllers
             _context.Settlements.RemoveRange(oldSettlements);
 
             var simplifier = new ExpenseSimplifier();
-            var simplifiedTransactions = simplifier.Simplify(netBalances);
+            var simplifiedTransactions = ExpenseSimplifier.Simplify(netBalances);
 
             var newSettlements = simplifiedTransactions.Select(txn => new Settlement
             {

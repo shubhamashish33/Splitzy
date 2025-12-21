@@ -29,10 +29,7 @@ namespace splitzy_dotnet.Controllers
         {
             try
             {
-                var groupMemberships = await _context.GroupMembers
-                    .Where(gm => gm.UserId == userId)
-                    .Include(gm => gm.Group)
-                    .ToListAsync();
+                List<GroupMember> groupMemberships = await GetUserGroupMembers(userId);
 
                 var result = groupMemberships.Select(gm => new UserGroupInfo
                 {
@@ -49,6 +46,14 @@ namespace splitzy_dotnet.Controllers
             }
         }
 
+        private async Task<List<GroupMember>> GetUserGroupMembers(int userId)
+        {
+            return await _context.GroupMembers
+                                .Where(gm => gm.UserId == userId)
+                                .Include(gm => gm.Group)
+                                .ToListAsync();
+        }
+
         /// <summary>
         /// Get group summary including members and expenses.
         /// </summary>
@@ -60,10 +65,7 @@ namespace splitzy_dotnet.Controllers
         {
             try
             {
-                var group = await _context.Groups
-                    .Include(g => g.GroupMembers).ThenInclude(gm => gm.User)
-                    .Include(g => g.Expenses).ThenInclude(e => e.PaidByUser)
-                    .FirstOrDefaultAsync(g => g.GroupId == groupId);
+                Group? group = await GetGroupWithMembersAndExpenses(groupId);
 
                 if (group == null)
                     return NotFound("Group not found.");
@@ -94,6 +96,14 @@ namespace splitzy_dotnet.Controllers
             }
         }
 
+        private async Task<Group?> GetGroupWithMembersAndExpenses(int groupId)
+        {
+            return await _context.Groups
+                                .Include(g => g.GroupMembers).ThenInclude(gm => gm.User)
+                                .Include(g => g.Expenses).ThenInclude(e => e.PaidByUser)
+                                .FirstOrDefaultAsync(g => g.GroupId == groupId);
+        }
+
         /// <summary>
         /// Creates a new group and adds users as members.
         /// </summary>
@@ -106,15 +116,13 @@ namespace splitzy_dotnet.Controllers
             try
             {
                 // Fetch users by email
-                var users = await _context.Users
-                    .Where(u => request.UserEmails.Contains(u.Email))
-                    .ToListAsync();
+                List<User> users = await FetchUsersByEmails(request);
 
                 // Check for missing emails
                 var foundEmails = users.Select(u => u.Email).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var missingEmails = request.UserEmails.Where(email => !foundEmails.Contains(email, StringComparer.OrdinalIgnoreCase)).ToList();
 
-                if (missingEmails.Any())
+                if (missingEmails.Count != 0)
                     return NotFound($"User(s) not found for email(s): {string.Join(", ", missingEmails)}");
 
                 var group = new Group
@@ -157,6 +165,13 @@ namespace splitzy_dotnet.Controllers
             }
         }
 
+        private async Task<List<User>> FetchUsersByEmails(CreateGroupRequest request)
+        {
+            return await _context.Users
+                                .Where(u => request.UserEmails.Contains(u.Email))
+                                .ToListAsync();
+        }
+
         /// <summary>
         /// Gets group overview for a user including balances and expenses.
         /// </summary>
@@ -171,11 +186,7 @@ namespace splitzy_dotnet.Controllers
                 var group = await _context.Groups.FirstOrDefaultAsync(g => g.GroupId == groupId);
                 if (group == null)
                     return NotFound("Group not found.");
-
-                var members = await _context.GroupMembers
-                    .Where(gm => gm.GroupId == groupId)
-                    .Select(gm => gm.UserId)
-                    .ToListAsync();
+                List<int> members = await GetUserIdsByGroup(groupId);
 
                 var userNameMap = await _context.Users
                     .Where(u => members.Contains(u.UserId))
@@ -252,6 +263,14 @@ namespace splitzy_dotnet.Controllers
             {
                 return StatusCode(500, $"Error getting overview: {ex.Message}");
             }
+        }
+
+        private async Task<List<int>> GetUserIdsByGroup(int groupId)
+        {
+            return await _context.GroupMembers
+                                .Where(gm => gm.GroupId == groupId)
+                                .Select(gm => gm.UserId)
+                                .ToListAsync();
         }
     }
 }

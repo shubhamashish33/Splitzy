@@ -99,7 +99,7 @@ namespace splitzy_dotnet.Controllers
             // ✅ Step 2: Trigger Google Login
             var props = new AuthenticationProperties
             {
-                RedirectUri = "http://localhost:4200"
+                RedirectUri = "https://splitzy.aarshiv.xyz"
             };
 
             return Challenge(props, GoogleDefaults.AuthenticationScheme);
