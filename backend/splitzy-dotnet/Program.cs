@@ -159,13 +159,14 @@ builder.Services.AddDbContext<SplitzyContext>(options =>
     var pgDb = builder.Configuration["POSTGRES_DB"];
     var pgUser = builder.Configuration["POSTGRES_USER"];
     var pgPassword = builder.Configuration["POSTGRES_PASSWORD"];
+    var pgPort = builder.Configuration["POSTGRES_PORT"];
 
     string connectionString;
 
     if (!string.IsNullOrWhiteSpace(pgHost))
     {
         connectionString =
-            $"Host={pgHost};Database={pgDb};Username={pgUser};Password={pgPassword}";
+            $"Host={pgHost};Port={pgPort};Database={pgDb};Username={pgUser};Password={pgPassword}";
     }
     else
     {
