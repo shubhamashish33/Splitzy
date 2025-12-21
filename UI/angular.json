@@ -65,6 +65,9 @@
               "buildTarget": "Splitz1:build:development"
             }
           },
+          "options": {
+            "allowedHosts": ["splitzy.aarshiv.xyz"]
+          },
           "defaultConfiguration": "development"
         },
         "extract-i18n": {
