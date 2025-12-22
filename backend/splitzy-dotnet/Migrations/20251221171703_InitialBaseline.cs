@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace splitzy_dotnet.Migrations
 {
     /// <inheritdoc />
-    public partial class AddActivityLogTable : Migration
+    public partial class InitialBaseline : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -135,36 +135,37 @@ namespace splitzy_dotnet.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ActivityLogs",
+                name: "activity_log",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
+                    id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    GroupId = table.Column<int>(type: "integer", nullable: false),
-                    UserId = table.Column<int>(type: "integer", nullable: false),
-                    ExpenseId = table.Column<int>(type: "integer", nullable: true),
-                    ActionType = table.Column<string>(type: "text", nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    group_id = table.Column<int>(type: "integer", nullable: false),
+                    user_id = table.Column<int>(type: "integer", nullable: false),
+                    expense_id = table.Column<int>(type: "integer", nullable: true),
+                    action_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    description = table.Column<string>(type: "text", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true, defaultValueSql: "CURRENT_TIMESTAMP"),
+                    amount = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ActivityLogs", x => x.Id);
+                    table.PrimaryKey("activity_log_pkey", x => x.id);
                     table.ForeignKey(
-                        name: "FK_ActivityLogs_expenses_ExpenseId",
-                        column: x => x.ExpenseId,
+                        name: "activity_log_expense_id_fkey",
+                        column: x => x.expense_id,
                         principalTable: "expenses",
                         principalColumn: "expense_id",
                         onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
-                        name: "FK_ActivityLogs_groups_GroupId",
-                        column: x => x.GroupId,
+                        name: "activity_log_group_id_fkey",
+                        column: x => x.group_id,
                         principalTable: "groups",
                         principalColumn: "group_id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_ActivityLogs_users_UserId",
-                        column: x => x.UserId,
+                        name: "activity_log_user_id_fkey",
+                        column: x => x.user_id,
                         principalTable: "users",
                         principalColumn: "user_id",
                         onDelete: ReferentialAction.Cascade);
@@ -198,19 +199,19 @@ namespace splitzy_dotnet.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_ActivityLogs_ExpenseId",
-                table: "ActivityLogs",
-                column: "ExpenseId");
+                name: "IX_activity_log_expense_id",
+                table: "activity_log",
+                column: "expense_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ActivityLogs_GroupId",
-                table: "ActivityLogs",
-                column: "GroupId");
+                name: "IX_activity_log_group_id",
+                table: "activity_log",
+                column: "group_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ActivityLogs_UserId",
-                table: "ActivityLogs",
-                column: "UserId");
+                name: "IX_activity_log_user_id",
+                table: "activity_log",
+                column: "user_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_expense_splits_expense_id",
@@ -268,7 +269,7 @@ namespace splitzy_dotnet.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "ActivityLogs");
+                name: "activity_log");
 
             migrationBuilder.DropTable(
                 name: "expense_splits");

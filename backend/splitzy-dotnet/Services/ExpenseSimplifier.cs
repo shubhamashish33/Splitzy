@@ -4,9 +4,9 @@ namespace splitzy_dotnet.Services
 {
     public class ExpenseSimplifier
     {
-        public List<ExpensesDTO> Simplify(Dictionary<int, decimal> netBalances)
+        public static List<ExpensesDTO> Simplify(Dictionary<int, decimal> netBalances)
         {
-            List<ExpensesDTO> result = new();
+            List<ExpensesDTO> result = [];
 
             while (true)
             {
