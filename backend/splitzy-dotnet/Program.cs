@@ -20,7 +20,7 @@ builder.Configuration
     .AddEnvironmentVariables();
 #endregion
 
-#region Authentication (JWT ONLY)
+#region Authentication
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -111,7 +111,6 @@ builder.Services.AddCors(options =>
             )
             .AllowAnyMethod()
             .AllowAnyHeader();
-        // ❌ AllowCredentials REMOVED (no cookies anymore)
     });
 });
 #endregion
