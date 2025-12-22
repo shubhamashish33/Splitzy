@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -9,7 +7,6 @@ using splitzy_dotnet.Models;
 using splitzy_dotnet.Services;
 using splitzy_dotnet.Services.Interfaces;
 using System.Reflection;
-using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,10 +23,10 @@ builder.Configuration
 #region Authentication
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
-.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+.AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -41,36 +38,9 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
-        )
+        ),
+        ClockSkew = TimeSpan.Zero
     };
-})
-.AddCookie("GoogleCookies", options =>
-{
-    options.Cookie.Name = ".AspNetCore.GoogleCookies";
-    options.Cookie.SameSite = SameSiteMode.None;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-
-    options.LoginPath = "/unauthorized";
-
-    options.Events.OnRedirectToLogin = context =>
-    {
-        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        return Task.CompletedTask;
-    };
-
-    options.Events.OnRedirectToAccessDenied = context =>
-    {
-        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        return Task.CompletedTask;
-    };
-})
-.AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
-{
-    options.ClientId = builder.Configuration["Google:ClientId"]!;
-    options.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
-    options.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
-    options.SignInScheme = "GoogleCookies";
-    options.CallbackPath = "/api/signin-google";
 });
 #endregion
 
@@ -79,12 +49,6 @@ builder.Services.AddControllers();
 #region Authorization
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("GooglePolicy", policy =>
-    {
-        policy.AuthenticationSchemes.Add("GoogleCookies");
-        policy.RequireAuthenticatedUser();
-    });
-
     options.DefaultPolicy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
         .RequireAuthenticatedUser()
         .Build();
@@ -146,8 +110,7 @@ builder.Services.AddCors(options =>
                 "https://42761f8c7efd.ngrok-free.app"
             )
             .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
+            .AllowAnyHeader();
     });
 });
 #endregion
@@ -200,6 +163,7 @@ app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
