@@ -1,24 +1,25 @@
 ﻿using Google.Apis.Auth;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Google;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using splitzy_dotnet.DTO;
 using splitzy_dotnet.Models;
 using splitzy_dotnet.Services.Interfaces;
-using System.Security.Claims;
 
 namespace splitzy_dotnet.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Produces("application/json")]
     public class AuthController : ControllerBase
     {
         private readonly SplitzyContext _context;
         private readonly IJWTService _jWTService;
         private readonly IConfiguration _configuration;
 
-        public AuthController(SplitzyContext context, IJWTService jWTService, IConfiguration configuration)
+        public AuthController(
+            SplitzyContext context,
+            IJWTService jWTService,
+            IConfiguration configuration)
         {
             _context = context;
             _jWTService = jWTService;
@@ -26,49 +27,43 @@ namespace splitzy_dotnet.Controllers
         }
 
         /// <summary>
-        /// Sample End point for testing
+        /// Health check endpoint for Auth API.
         /// </summary>
-        /// <returns></returns>
-        [HttpGet("Index")]
+        [HttpGet("index")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
         public IActionResult Index()
         {
-            return Ok("Welcome to Google SSO API!");
+            return Ok("Welcome to Splitzy Auth API!");
         }
 
         /// <summary>
-        /// Logs in an existing user and returns a JWT token.
+        /// Authenticates a user using email and password.
         /// </summary>
-        /// <param name="user">Login credentials</param>
-        /// <returns>JWT Token and User ID</returns>
+        /// <remarks>
+        /// Validates credentials and returns a JWT token if authentication succeeds.
+        /// </remarks>
         [HttpPost("login")]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status401Unauthorized)]
         public IActionResult Login([FromBody] LoginRequestDTO user)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(new ApiResponse<string>
                 {
                     Success = false,
                     Message = "Invalid request"
                 });
+            }
 
             var loginUser = _context.Users.FirstOrDefault(u => u.Email == user.Email);
-            if (loginUser == null)
+            if (loginUser == null || loginUser.PasswordHash != user.Password)
             {
                 return Unauthorized(new ApiResponse<string>
                 {
                     Success = false,
-                    Message = "User not found"
-                });
-            }
-
-            if (loginUser.PasswordHash != user.Password)
-            {
-                return Unauthorized(new ApiResponse<string>
-                {
-                    Success = false,
-                    Message = "Password is incorrect"
+                    Message = "Invalid email or password"
                 });
             }
 
@@ -78,117 +73,27 @@ namespace splitzy_dotnet.Controllers
             {
                 Success = true,
                 Message = "Login successful",
-                Data = new
-                {
-                    Id = loginUser.UserId,
-                    Token = token
-                }
+                Data = new { Id = loginUser.UserId, Token = token }
             });
         }
 
-
         /// <summary>
-        /// Endpoint for SSO Login
+        /// Registers a new user using email and password.
         /// </summary>
-        /// <returns></returns>
-        [HttpGet("ssologin")]
-        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status200OK)]
-        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status500InternalServerError)]
-        public IActionResult SSOLogin()
-        {
-            // ✅ Step 2: Trigger Google Login
-            var props = new AuthenticationProperties
-            {
-                RedirectUri = "https://splitzy.aarshiv.xyz"
-            };
-
-            return Challenge(props, GoogleDefaults.AuthenticationScheme);
-        }
-
-        /// <summary>
-        /// Secire Endpoint for GoogleOAuth
-        /// </summary>
-        /// <returns></returns>
-        [HttpGet("secure")]
-        //[ApiExplorerSettings(IgnoreApi = true)]
-        [Authorize(AuthenticationSchemes = "GoogleCookies", Policy = "GooglePolicy")]
-        public IActionResult Secure()
-        {
-            // Edge case: If user is not authenticated
-            if (User?.Identity == null || !User.Identity.IsAuthenticated)
-            {
-                return Unauthorized(new ApiResponse<string>
-                {
-                    Success = false,
-                    Message = "User is not authenticated."
-                });
-            }
-
-            var email = User.FindFirst(ClaimTypes.Email)?.Value;
-
-            // Edge case: If email claim is missing
-            if (string.IsNullOrEmpty(email))
-            {
-                return BadRequest(new ApiResponse<string>
-                {
-                    Success = false,
-                    Message = "Email claim not found in user identity."
-                });
-            }
-
-            var loginUser = _context.Users.FirstOrDefault(u => u.Email == email);
-
-            // Edge case: If user is not found in database
-            if (loginUser == null)
-            {
-                return NotFound(new ApiResponse<string>
-                {
-                    Success = false,
-                    Message = "User not registered in the system."
-                });
-            }
-
-            var token = _jWTService.GenerateToken(loginUser.UserId);
-
-            return Ok(new ApiResponse<object>
-            {
-                Success = true,
-                Message = "Login successful",
-                Data = new
-                {
-                    Id = loginUser.UserId,
-                    Token = token
-                }
-            });
-        }
-
-
-        /// <summary>
-        /// Registers a new user.
-        /// </summary>
-        /// <param name="request">User registration data</param>
-        /// <returns>Created User ID</returns>
+        /// <remarks>
+        /// Creates a new user account and returns the created user ID.
+        /// </remarks>
         [HttpPost("signup")]
-        [ProducesResponseType(typeof(ApiResponse<>), StatusCodes.Status200OK)]
-        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType((typeof(ApiResponse<>)), StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status400BadRequest)]
         public IActionResult Signup([FromBody] SignupRequestDTO request)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(new ApiResponse<string>
                 {
                     Success = false,
                     Message = "Invalid input"
-                });
-
-            if (string.IsNullOrWhiteSpace(request.Name) ||
-                string.IsNullOrWhiteSpace(request.Email) ||
-                string.IsNullOrWhiteSpace(request.Password))
-            {
-                return BadRequest(new ApiResponse<string>
-                {
-                    Success = false,
-                    Message = "Name, Email, and Password are required."
                 });
             }
 
@@ -197,7 +102,7 @@ namespace splitzy_dotnet.Controllers
                 return BadRequest(new ApiResponse<string>
                 {
                     Success = false,
-                    Message = "Email already exists."
+                    Message = "Email already exists"
                 });
             }
 
@@ -220,53 +125,107 @@ namespace splitzy_dotnet.Controllers
             });
         }
 
-
         /// <summary>
-        /// Logs out the current user by clearing authentication cookies (if any).
+        /// Logs out the current user.
         /// </summary>
-        /// <returns>Logout status</returns>
+        /// <remarks>
+        /// For JWT-based authentication, logout is handled entirely on the client
+        /// by removing the stored token.
+        /// </remarks>
         [HttpGet("logout")]
         [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> Logout()
+        public IActionResult Logout()
         {
-            // Explicitly sign out of the GoogleCookies scheme
-            await HttpContext.SignOutAsync("GoogleCookies");
-
-            // Manually remove the cookie (sends expired Set-Cookie header)
-            Response.Cookies.Append(".AspNetCore.GoogleCookies", "", new CookieOptions
-            {
-                Expires = DateTimeOffset.UnixEpoch,
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None
-            });
-
             return Ok(new ApiResponse<string>
             {
                 Success = true,
-                Message = "Logged out successfully."
+                Message = "Logout successful"
             });
         }
 
+        /// <summary>
+        /// Authenticates a user using a Google ID token.
+        /// </summary>
+        /// <remarks>
+        /// UI sends the Google ID token.
+        /// Backend validates the token using Google public keys and client ID.
+        /// If the user does not exist, a new account is created.
+        /// Returns a JWT token for API access.
+        /// </remarks>
         [HttpPost("google-login")]
-        public async Task<IActionResult> GoogleLogin([FromBody] string idToken)
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDTO request)
         {
-            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
+            if (request == null || string.IsNullOrWhiteSpace(request.IdToken))
             {
-                Audience = new[] { _configuration["Google:ClientId"] }
-            });
+                return BadRequest(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "IdToken is required"
+                });
+            }
 
-            var email = payload.Email;
+            // Prefer environment variable, fallback to configuration
+            var googleClientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID")
+                                 ?? _configuration["Google:ClientId"];
 
-            var user = _context.Users.FirstOrDefault(u => u.Email == email);
+            if (string.IsNullOrWhiteSpace(googleClientId))
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "Google ClientId not configured. Set GOOGLE_CLIENT_ID environment variable or Google:ClientId configuration."
+                });
+            }
+
+            GoogleJsonWebSignature.Payload payload;
+
+            try
+            {
+                payload = await GoogleJsonWebSignature.ValidateAsync(
+                    request.IdToken,
+                    new GoogleJsonWebSignature.ValidationSettings
+                    {
+                        Audience = new[]
+                        {
+                                googleClientId
+                        }
+                    });
+            }
+            catch
+            {
+                return Unauthorized(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "Invalid Google token"
+                });
+            }
+
+            if (!payload.EmailVerified)
+            {
+                return Unauthorized(new ApiResponse<string>
+                {
+                    Success = false,
+                    Message = "Google email not verified"
+                });
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == payload.Email);
 
             if (user == null)
             {
-                return NotFound(new ApiResponse<string>
+                user = new User
                 {
-                    Success = false,
-                    Message = "User not registered"
-                });
+                    Email = payload.Email,
+                    Name = payload.Name,
+                    PasswordHash = Guid.NewGuid().ToString(),
+                    CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified)
+                };
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
             }
 
             var token = _jWTService.GenerateToken(user.UserId);
@@ -278,7 +237,5 @@ namespace splitzy_dotnet.Controllers
                 Data = new { Id = user.UserId, Token = token }
             });
         }
-
-
     }
 }
