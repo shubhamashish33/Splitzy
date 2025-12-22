@@ -1,7 +1,7 @@
 export const environment = {
     production: false,
     bypassAuthOnLocalhost: true,
-    apiBaseUrl: 'https://a9e0c23e0e53.ngrok-free.app',
+    apiBaseUrl: 'https://splitzy.aarshiv.xyz',
     // apiBaseUrl: 'https://02f1b6b840d.ngrok-free.app',
     endpoints: {
         SSOLOGIN: '/api/Auth/ssologin',
