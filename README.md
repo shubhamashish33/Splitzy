@@ -1,5 +1,15 @@
 # Splitzy 💰
 
+# 🚨 ARCHIVED REPOSITORY — NO LONGER MAINTAINED
+
+> **This repository is deprecated and inactive. No updates, fixes, or support will be provided.**
+
+
+## ➜ Active Development Has Moved
+
+All ongoing work is now here:
+👉 **[https://github.com/Splitzzyy/Splitzy]**
+
 ## Overview
 
 Splitzy is a modern expense sharing platform that simplifies splitting bills and managing shared expenses with friends, roommates, and groups. Whether you're sharing dinner costs, splitting rent, or managing group travel expenses, Splitzy makes it easy to track who owes what and settle up seamlessly.
